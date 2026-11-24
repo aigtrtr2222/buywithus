@@ -975,3 +975,80 @@ body.is-locked .chat { display: none; }
   font-size: 11px; text-align: center;
 }
 .msg__crown { font-size: 10px; margin-left: 3px; }
+
+/* ---------- 푸터: 큰 로고 = 인스타 링크, QR ---------- */
+.footer__brand { gap: 18px; }
+.footer__brand p { margin: 2px 0 6px; }
+.footer__logo {
+  position: relative; flex: none; display: block; border-radius: 50%;
+  transition: transform .35s var(--ease-pop);
+}
+.footer__logo img { width: 84px; height: 84px; border-radius: 50%; box-shadow: var(--shadow); }
+.footer__logo:hover { transform: rotate(-6deg) scale(1.06); }
+.footer__logo:focus-visible { outline: 3px solid var(--green); outline-offset: 4px; }
+.footer__ig {
+  position: absolute; right: -2px; bottom: -2px;
+  width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center; color: #fff;
+  background: radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%);
+  box-shadow: 0 0 0 3px var(--beige);
+}
+.footer__qr {
+  display: grid; justify-items: center; gap: 6px;
+  padding: 10px 10px 8px; border-radius: 16px; background: #fff;
+  box-shadow: var(--shadow); font-size: 12px; font-weight: 600; color: var(--muted);
+  transition: transform .3s var(--ease-pop);
+}
+.footer__qr:hover { transform: translateY(-3px); }
+.footer__qr img { width: 104px; height: auto; }
+@media (max-width: 560px) {
+  .footer__qr { display: none; }   /* 폰에선 로고·링크 누르면 바로 이동 */
+  .footer__logo img { width: 68px; height: 68px; }
+}
+
+/* 오른쪽 아래 수다방 봉투가 푸터 QR을 가리지 않게 */
+.footer { padding-bottom: 120px; }
+
+/* ---------- 🥚 이스터에그: 바구니 합치기 ---------- */
+.egg__box { width: 440px; padding: 26px 26px 20px; text-align: center; }
+.egg__box h3 { margin-bottom: 6px; }
+.egg__tag {
+  display: inline-block; margin: 0 0 8px; padding: 4px 12px; border-radius: 999px;
+  background: var(--bread-l); color: #8A5A12; font-size: 12px; font-weight: 800; letter-spacing: .04em;
+  animation: egg-wobble 1.6s ease-in-out infinite;
+}
+@keyframes egg-wobble { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+.egg__desc { margin: 0 0 12px; font-size: 13px; color: var(--muted); line-height: 1.55; }
+.egg__desc b { color: var(--ink); }
+.egg__hud {
+  display: flex; justify-content: space-between; gap: 8px; margin-bottom: 8px;
+  font-size: 13px; color: var(--muted);
+}
+.egg__hud b { font-family: var(--font-display); font-weight: 400; font-size: 20px; color: var(--green-d); margin-left: 4px; }
+.egg__next b { font-size: 22px; }
+.egg__stage {
+  position: relative; margin: 0 auto; width: min(360px, 100%, calc((100vh - 330px) * 0.6667));
+  aspect-ratio: 360 / 540;
+  border-radius: 6px 6px 18px 18px; overflow: hidden;
+  border: 3px solid var(--kraft-d); box-shadow: var(--shadow);
+}
+.egg__stage canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+.egg__over {
+  position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 8px;
+  background: rgba(255,253,248,.82); backdrop-filter: blur(2px);
+}
+.egg__over[hidden] { display: none; }
+.egg__over p { margin: 0; font-weight: 700; }
+.egg__over strong { font-family: var(--font-display); font-weight: 400; font-size: 40px; color: var(--tomato); }
+.egg__ladder {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; margin: 10px 0 4px; padding: 0; list-style: none;
+  font-size: 18px;
+}
+.egg__ladder li + li::before { content: "›"; margin: 0 2px; font-size: 12px; color: var(--muted); }
+.egg__help { margin: 0 0 12px; font-size: 11px; color: var(--muted); }
+.egg__actions { display: flex; gap: 8px; justify-content: center; }
+@media (max-width: 560px) {
+  .egg__box { padding: 22px 14px 16px; }
+  .egg__desc { font-size: 12px; }
+  .egg__stage { width: min(360px, 100%, calc((100vh - 300px) * 0.6667)); }
+}

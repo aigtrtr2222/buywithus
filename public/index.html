@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
-  <link rel="stylesheet" href="style.css?v=4" />
+  <link rel="stylesheet" href="style.css?v=5" />
 </head>
 <body class="is-locked">
 
@@ -245,13 +245,22 @@
 
     <footer class="footer">
       <div class="footer__brand">
-        <img src="assets/logo.png" alt="" width="36" height="36" />
+        <a class="footer__logo" href="https://www.instagram.com/buywithus12/" target="_blank" rel="noopener" aria-label="Buy With Us 인스타그램 열기">
+          <img src="assets/logo.png" alt="" width="84" height="84" />
+          <span class="footer__ig" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="16" height="16"><rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="17.4" cy="6.6" r="1.3" fill="currentColor"/></svg>
+          </span>
+        </a>
         <div>
           <b>나 혼자 안산다 | Buy With Us</b>
           <p>필요한 만큼 사고, 함께 나누는 식재료 · 건국대학교 학생 프로젝트</p>
+          <a class="footer__insta" href="https://www.instagram.com/buywithus12/" target="_blank" rel="noopener">📸 인스타그램 @buywithus12 →</a>
         </div>
       </div>
-      <a class="footer__insta" href="https://www.instagram.com/buywithus12/" target="_blank" rel="noopener">Instagram @buywithus12</a>
+      <a class="footer__qr" href="https://www.instagram.com/buywithus12/" target="_blank" rel="noopener" aria-label="인스타그램 QR 코드">
+        <img src="assets/insta-qr.png" alt="인스타그램 @buywithus12 QR 코드" width="104" height="129" loading="lazy" />
+        <span>폰으로 찍고 팔로우</span>
+      </a>
     </footer>
   </div>
 
@@ -380,6 +389,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="script.js?v=4"></script>
+  <script src="script.js?v=5"></script>
 </body>
 </html>

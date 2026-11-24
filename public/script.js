@@ -12,11 +12,35 @@
   function finish() {
     intro.remove();
     document.body.classList.remove('is-locked');
+    if (egg) startEgg();
   }
 
-  function open(fast = false) {
+  // 🥚 이스터에그: 장바구니를 직접 열면 10% 확률로 '바구니 합치기' 게임 (주소에 ?egg 붙이면 항상)
+  const EGG_CHANCE = 0.1;
+  const forceEgg = new URLSearchParams(location.search).has('egg');
+  let egg = false;
+
+  function loadScript(src) {
+    return new Promise((ok, fail) => {
+      const s = document.createElement('script');
+      s.src = src; s.onload = ok; s.onerror = fail;
+      document.head.appendChild(s);
+    });
+  }
+  async function startEgg() {
+    try {
+      if (!window.Matter) await loadScript('vendor/matter-0.20.0.min.js');
+      if (!window.BWUEgg) await loadScript('egg.js?v=2');
+      window.BWUEgg.start();
+    } catch (err) {
+      console.warn('이스터에그를 불러오지 못했어요', err);
+    }
+  }
+
+  function open(fast = false, byBasket = false) {
     if (opened) return;
     opened = true;
+    egg = byBasket && (forceEgg || Math.random() < EGG_CHANCE);
     if (fast) {
       document.body.classList.add('is-revealed');
       intro.classList.add('is-leaving');
@@ -29,8 +53,8 @@
     setTimeout(finish, 1900);
   }
 
-  basket.addEventListener('mouseenter', () => open());
-  basket.addEventListener('click', () => open());        // 모바일 탭 / 키보드 Enter
+  basket.addEventListener('mouseenter', () => open(false, true));
+  basket.addEventListener('click', () => open(false, true));   // 모바일 탭 / 키보드 Enter
   skip.addEventListener('click', () => open(true));
   // 스크롤 휠로도 열리게
   window.addEventListener('wheel', () => open(), { once: true, passive: true });
