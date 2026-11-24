@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>나 혼자 안산다 | Buy With Us</title>
+  <meta name="description" content="혼자 사기엔 많고, 버리기엔 아깝다면? 동네 자취생들과 식재료를 1/N로 나누는 공동구매 플랫폼" />
+  <link rel="icon" href="assets/logo.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="is-locked">
+
+  <!-- ============ INTRO : 장바구니 ============ -->
+  <section class="intro" id="intro" aria-label="인트로">
+    <div class="intro__stage">
+      <button class="basket" id="basket" type="button" aria-label="바구니 열기 — 메인 페이지로 이동">
+
+        <!-- 손잡이 (재료 뒤) -->
+        <svg class="basket__handle" viewBox="0 0 380 240" aria-hidden="true">
+          <path d="M78 236 L136 52 Q146 22 176 22 H204 Q234 22 244 52 L302 236"
+                fill="none" stroke="var(--green)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+
+        <!-- 식재료들 : --x --y 튀어나갈 위치 / --r 회전 / --d 딜레이 -->
+        <span class="item item--onion"    style="--x:-270px; --y:-190px; --r:-35deg; --d:0ms">
+          <span class="item__bob">
+            <svg viewBox="0 0 90 104"><path d="M45 6 C47 22 80 38 80 66 C80 88 64 100 45 100 C26 100 10 88 10 66 C10 38 43 22 45 6Z" fill="#B9714F"/><path d="M45 14 C46 30 66 44 66 66 C66 84 57 96 45 98" fill="none" stroke="#9A5A3D" stroke-width="3" stroke-linecap="round"/><path d="M45 14 C44 30 24 44 24 66 C24 84 33 96 45 98" fill="none" stroke="#D4936F" stroke-width="3" stroke-linecap="round"/><path d="M45 2 L45 12" stroke="#7F9A4E" stroke-width="5" stroke-linecap="round"/></svg>
+          </span>
+        </span>
+
+        <span class="item item--leek"     style="--x:-40px;  --y:-340px; --r:18deg;  --d:60ms">
+          <span class="item__bob">
+            <svg viewBox="0 0 50 200"><rect x="15" y="96" width="20" height="96" rx="9" fill="#F4EFE1"/><path d="M15 180 h20" stroke="#E2D8BF" stroke-width="3"/><path d="M17 104 C10 60 4 30 6 6 C14 30 22 60 25 100Z" fill="#6F8A42"/><path d="M33 104 C40 60 46 34 44 10 C36 34 28 62 25 100Z" fill="#87A458"/><path d="M22 104 C20 70 22 40 25 14 C28 40 30 70 28 104Z" fill="#5E7A35"/><path d="M18 192 l-3 6 M25 192 v7 M32 192 l3 6" stroke="#CBBE9F" stroke-width="2" stroke-linecap="round"/></svg>
+          </span>
+        </span>
+
+        <span class="item item--broccoli" style="--x:-330px; --y:10px;   --r:-55deg; --d:120ms">
+          <span class="item__bob">
+            <svg viewBox="0 0 110 120"><path d="M48 68 L44 116 H66 L62 68Z" fill="#A9C27A"/><circle cx="34" cy="50" r="24" fill="#6E8C3E"/><circle cx="76" cy="50" r="24" fill="#6E8C3E"/><circle cx="55" cy="32" r="26" fill="#7F9A4E"/><circle cx="55" cy="60" r="20" fill="#5E7A35"/><circle cx="44" cy="28" r="5" fill="#93AE62"/><circle cx="68" cy="40" r="4" fill="#93AE62"/><circle cx="30" cy="48" r="4" fill="#93AE62"/></svg>
+          </span>
+        </span>
+
+        <span class="item item--tomato"   style="--x:-130px; --y:-280px; --r:30deg;  --d:30ms">
+          <span class="item__bob">
+            <svg viewBox="0 0 100 100"><circle cx="50" cy="58" r="38" fill="var(--tomato)"/><ellipse cx="36" cy="46" rx="9" ry="6" fill="#E08467" opacity=".8"/><path d="M50 26 L40 16 L48 24 L36 26 L50 30 L64 26 L52 24 L60 16Z" fill="#5E7A35" stroke="#5E7A35" stroke-width="4" stroke-linejoin="round"/><path d="M50 26 V12" stroke="#5E7A35" stroke-width="5" stroke-linecap="round"/></svg>
+          </span>
+        </span>
+
+        <span class="item item--bread"    style="--x:170px;  --y:-300px; --r:48deg;  --d:90ms">
+          <span class="item__bob">
+            <svg viewBox="0 0 64 180"><ellipse cx="32" cy="90" rx="27" ry="84" fill="var(--bread)"/><ellipse cx="24" cy="80" rx="8" ry="60" fill="#EDCB8A" opacity=".7"/><path d="M20 40 Q32 34 44 46 M18 76 Q32 70 46 82 M18 112 Q32 106 46 118 M20 146 Q32 140 44 150" fill="none" stroke="#FBEBC6" stroke-width="7" stroke-linecap="round"/></svg>
+          </span>
+        </span>
+
+        <span class="item item--carrot"   style="--x:290px;  --y:-150px; --r:70deg;  --d:150ms">
+          <span class="item__bob">
+            <svg viewBox="0 0 70 150"><path d="M35 146 L10 46 Q35 30 60 46Z" fill="var(--carrot)"/><path d="M22 70 h10 M30 92 h12 M26 114 h8" stroke="#C4612A" stroke-width="3" stroke-linecap="round"/><path d="M35 40 C26 26 18 18 12 4 C24 10 32 20 35 34 C38 20 46 10 58 4 C52 18 44 26 35 40Z" fill="#7F9A4E"/><path d="M35 40 V8" stroke="#5E7A35" stroke-width="4" stroke-linecap="round"/></svg>
+          </span>
+        </span>
+
+        <span class="item item--egg"      style="--x:250px;  --y:60px;   --r:-25deg; --d:180ms">
+          <span class="item__bob">
+            <svg viewBox="0 0 70 90"><ellipse cx="35" cy="48" rx="30" ry="38" fill="#FFF6E3" stroke="#E6D3AE" stroke-width="3"/><ellipse cx="25" cy="36" rx="6" ry="10" fill="#fff"/></svg>
+          </span>
+        </span>
+
+        <!-- 바구니 몸통 (재료 앞) -->
+        <svg class="basket__body" viewBox="0 0 380 210" aria-hidden="true">
+          <path d="M34 34 H346 L314 198 Q312 204 304 204 H76 Q68 204 66 198Z" fill="var(--cream)" stroke="var(--green)" stroke-width="12" stroke-linejoin="round"/>
+          <rect x="8" y="12" width="364" height="36" rx="18" fill="var(--green)"/>
+          <text x="190" y="148" text-anchor="middle" class="basket__word">bwu</text>
+        </svg>
+
+        <svg class="basket__swoosh" viewBox="0 0 520 80" aria-hidden="true">
+          <path d="M40 30 C-10 70 160 78 300 66 C410 56 500 34 480 10" fill="none" stroke="var(--leaf)" stroke-width="7" stroke-linecap="round"/>
+        </svg>
+      </button>
+
+      <p class="intro__title">혼자 사기엔 많고, 버리기엔 아깝다면?</p>
+      <p class="intro__hint">
+        <span class="hint-hover">바구니에 마우스를 올려보세요</span>
+        <span class="hint-touch">바구니를 눌러보세요</span>
+      </p>
+    </div>
+    <button class="intro__skip" id="introSkip" type="button">건너뛰기 →</button>
+  </section>
+
+  <!-- ============ MAIN ============ -->
+  <div class="site" id="site">
+
+    <header class="header">
+      <a class="brand" href="#top">
+        <img src="assets/logo.png" alt="" width="40" height="40" />
+        <span class="brand__name">나 혼자 안산다</span>
+        <span class="brand__sub">buy with us</span>
+      </a>
+      <nav class="nav" aria-label="주요 메뉴">
+        <a href="#how">이용 방법</a>
+        <a href="#board">모집 게시판</a>
+        <a href="#survey">수요조사</a>
+      </nav>
+      <button class="btn btn--primary btn--sm" data-open-write type="button">+ 모집글 쓰기</button>
+    </header>
+
+    <main id="top">
+
+      <!-- HERO -->
+      <section class="hero">
+        <div class="hero__text reveal">
+          <p class="eyebrow">🥬 동네 자취생 식재료 공동구매</p>
+          <h1>양파 한 망,<br/><em>셋이 나누면</em><br/>딱 좋아요.</h1>
+          <p class="hero__lead">
+            묶음으로 사면 싸지만 혼자선 다 못 먹고 버리게 되는 식재료.<br/>
+            근처에 사는 자취생들과 함께 사서, 필요한 만큼만 1/N로 나눠요.
+          </p>
+          <div class="hero__cta">
+            <a class="btn btn--primary" href="#board">모집 중인 공구 보기</a>
+            <button class="btn btn--ghost" data-open-write type="button">내가 모집하기</button>
+          </div>
+        </div>
+
+        <!-- 영수증 카드 : 1/N 설명 -->
+        <div class="receipt reveal" aria-label="1/N 계산 예시">
+          <div class="receipt__head">
+            <span>BUY WITH US</span><span>RECEIPT</span>
+          </div>
+          <ul class="receipt__list">
+            <li><span>🧅 양파 한 망 (3kg)</span><b>6,900</b></li>
+            <li><span>🥬 대파 한 단</span><b>3,000</b></li>
+            <li><span>🥚 계란 한 판 (30구)</span><b>8,400</b></li>
+          </ul>
+          <div class="receipt__total"><span>합계</span><b>18,300원</b></div>
+          <div class="receipt__split">
+            <span>÷ 3명</span>
+            <strong>6,100<small>원</small></strong>
+          </div>
+          <p class="receipt__note">버리는 양파 없이, 1인분 가격 걱정 없이.</p>
+          <span class="receipt__stamp">1/N</span>
+        </div>
+
+        <span class="float float--1" aria-hidden="true">🍅</span>
+        <span class="float float--2" aria-hidden="true">🥕</span>
+        <span class="float float--3" aria-hidden="true">🥖</span>
+      </section>
+
+      <!-- 수요조사 수치 -->
+      <section class="stats" aria-label="수요조사 결과">
+        <div class="stats__inner">
+          <article class="stat reveal">
+            <strong><span class="count" data-to="64">0</span>%</strong>
+            <p>가장 자주 버리는 식재료가<br/><b>묶음 채소</b>(양파 한 망, 대파 한 단)</p>
+          </article>
+          <article class="stat reveal">
+            <strong><span class="count" data-to="56">0</span>%</strong>
+            <p>혼자 장 볼 때 고민 1위,<br/><b>1인분으로 사면 비싸지는 가격</b></p>
+          </article>
+          <article class="stat reveal">
+            <strong><span class="count" data-to="80">0</span>%</strong>
+            <p>1/N 공동구매 플랫폼<br/><b>이용 의향 4~5점</b></p>
+          </article>
+        </div>
+        <p class="stats__src">* 2026 식재료 공동구매 수요조사 (응답 25명)</p>
+      </section>
+
+      <!-- 이용 방법 -->
+      <section class="how" id="how">
+        <header class="section-head reveal">
+          <p class="eyebrow">HOW IT WORKS</p>
+          <h2>세 단계면 충분해요</h2>
+        </header>
+        <ol class="steps">
+          <li class="step reveal">
+            <span class="step__no">01</span>
+            <div class="step__icon" aria-hidden="true">📝</div>
+            <h3>모집글 올리기</h3>
+            <p>장소, 살 물건, 만날 시간, 모집 마감 시간, 인원, 오픈채팅 링크를 적어 올려요.</p>
+          </li>
+          <li class="step reveal">
+            <span class="step__no">02</span>
+            <div class="step__icon" aria-hidden="true">🙋</div>
+            <h3>참여 버튼 누르기</h3>
+            <p>근처 공구가 마음에 들면 참여! 참여하면 오픈채팅 링크가 공개돼요.</p>
+          </li>
+          <li class="step reveal">
+            <span class="step__no">03</span>
+            <div class="step__icon" aria-hidden="true">🧺</div>
+            <h3>만나서 1/N</h3>
+            <p>마감되면 작성자가 리더가 되어 오픈채팅에서 시간·정산을 정리하고 함께 나눠요.</p>
+          </li>
+        </ol>
+      </section>
+
+      <!-- 게시판 -->
+      <section class="board" id="board">
+        <header class="section-head section-head--row reveal">
+          <div>
+            <p class="eyebrow">NOW RECRUITING</p>
+            <h2>지금 모집 중인 공구</h2>
+          </div>
+          <button class="btn btn--primary" data-open-write type="button">+ 모집글 쓰기</button>
+        </header>
+
+        <div class="toolbar reveal">
+          <div class="chips" role="tablist" aria-label="카테고리">
+            <button class="chip is-active" data-cat="all" type="button">전체</button>
+            <button class="chip" data-cat="veg" type="button">🥬 채소</button>
+            <button class="chip" data-cat="fruit" type="button">🍎 과일</button>
+            <button class="chip" data-cat="meat" type="button">🥩 정육·수산</button>
+            <button class="chip" data-cat="dairy" type="button">🥚 계란·유제품</button>
+            <button class="chip" data-cat="daily" type="button">🧻 생필품</button>
+          </div>
+          <div class="toolbar__right">
+            <label class="search">
+              <span class="sr-only">검색</span>
+              <input id="search" type="search" placeholder="품목, 동네로 검색" />
+            </label>
+            <select id="sort" aria-label="정렬">
+              <option value="deadline">마감 임박순</option>
+              <option value="new">최신순</option>
+              <option value="cheap">1인 가격 낮은순</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="cards" id="cards" aria-live="polite"></div>
+        <p class="empty" id="empty" hidden>조건에 맞는 공구가 없어요. 직접 모집해보는 건 어때요? 🧺</p>
+      </section>
+
+      <!-- 수요조사 배너 -->
+      <section class="survey" id="survey">
+        <div class="survey__inner reveal">
+          <div>
+            <h2>여러분의 장보기 고민을 들려주세요</h2>
+            <p>식재료 공동구매 수요조사를 진행하고 있어요. 의견이 서비스를 구체화하는 데 큰 도움이 됩니다.</p>
+          </div>
+          <a class="btn btn--bread" href="https://docs.google.com/forms/d/1y1C9B235ukMnmVQSHH6wjphJlvTxfw0z7LDPX59N2XY/viewform" target="_blank" rel="noopener">설문 참여하기 →</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="footer__brand">
+        <img src="assets/logo.png" alt="" width="36" height="36" />
+        <div>
+          <b>나 혼자 안산다 | Buy With Us</b>
+          <p>필요한 만큼 사고, 함께 나누는 식재료 · 건국대학교 학생 프로젝트</p>
+        </div>
+      </div>
+      <a class="footer__insta" href="https://www.instagram.com/buywithus12/" target="_blank" rel="noopener">Instagram @buywithus12</a>
+    </footer>
+  </div>
+
+  <!-- ============ 참여 모달 ============ -->
+  <dialog class="modal" id="joinDialog">
+    <form method="dialog" class="modal__box">
+      <button class="modal__x" value="cancel" aria-label="닫기">×</button>
+      <p class="eyebrow" id="joinCat"></p>
+      <h3 id="joinTitle"></h3>
+      <dl class="modal__info" id="joinInfo"></dl>
+
+      <div class="join-step" id="joinConfirm">
+        <label class="check">
+          <input type="checkbox" id="noShowCheck" />
+          <span>약속 시간을 꼭 지킬게요. 못 오게 되면 미리 오픈채팅에 알릴게요. (노쇼 방지)</span>
+        </label>
+        <button class="btn btn--primary btn--block" id="joinBtn" type="button" disabled>참여하고 오픈채팅 링크 받기</button>
+      </div>
+
+      <div class="join-step join-done" id="joinDone" hidden>
+        <div class="join-done__burst" aria-hidden="true">🎉</div>
+        <p><b>참여 완료!</b> 아래 오픈채팅에서 리더와 만날 시간·정산을 이야기해요.</p>
+        <a class="kakao" id="kakaoLink" href="#" target="_blank" rel="noopener">
+          <span class="kakao__icon" aria-hidden="true">💬</span>
+          <span>오픈채팅방 입장하기</span>
+        </a>
+        <button class="btn btn--ghost btn--block btn--sm" id="leaveBtn" type="button">참여 취소</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ============ 글쓰기 모달 ============ -->
+  <dialog class="modal" id="writeDialog">
+    <form class="modal__box modal__box--wide" id="writeForm" novalidate>
+      <button class="modal__x" type="button" data-close aria-label="닫기">×</button>
+      <p class="eyebrow">NEW POST</p>
+      <h3>공동구매 모집하기</h3>
+
+      <div class="form-grid">
+        <label class="field field--full">
+          <span>제목</span>
+          <input name="title" required maxlength="40" placeholder="예) 양파 한 망 셋이 나눠요" />
+        </label>
+        <label class="field">
+          <span>닉네임 (리더 이름)</span>
+          <input name="leader" required maxlength="12" placeholder="예) 자취 3년차" />
+        </label>
+        <label class="field">
+          <span>카테고리</span>
+          <select name="cat" required>
+            <option value="veg">🥬 채소</option>
+            <option value="fruit">🍎 과일</option>
+            <option value="meat">🥩 정육·수산</option>
+            <option value="dairy">🥚 계란·유제품</option>
+            <option value="daily">🧻 생필품</option>
+          </select>
+        </label>
+        <label class="field field--full">
+          <span>구매할 물품</span>
+          <input name="item" required maxlength="60" placeholder="예) 양파 3kg 한 망" />
+        </label>
+        <label class="field">
+          <span>총 가격 (원)</span>
+          <input name="price" type="number" min="0" step="100" required placeholder="6900" />
+        </label>
+        <label class="field">
+          <span>제한 인원 (나 포함)</span>
+          <input name="max" type="number" min="2" max="10" value="3" required />
+        </label>
+        <label class="field">
+          <span>만날 장소</span>
+          <input name="place" required maxlength="60" placeholder="예) 화양동 OO마트 앞" />
+        </label>
+        <label class="field">
+          <span>동네</span>
+          <input name="area" required maxlength="20" placeholder="예) 화양동" />
+        </label>
+        <label class="field">
+          <span>만날 시간</span>
+          <input name="meet" type="datetime-local" required />
+        </label>
+        <label class="field">
+          <span>모집 마감 시간</span>
+          <input name="deadline" type="datetime-local" required />
+        </label>
+        <label class="field field--full">
+          <span>오픈카카오톡 링크 <small>참여한 사람에게만 공개돼요</small></span>
+          <input name="kakao" type="url" required placeholder="https://open.kakao.com/o/..." />
+        </label>
+        <label class="field field--full">
+          <span>메모 (선택)</span>
+          <textarea name="memo" rows="3" maxlength="200" placeholder="나눠 담을 봉지 챙겨오기, 정산은 만나서 송금 등"></textarea>
+        </label>
+      </div>
+      <p class="form-error" id="formError" role="alert"></p>
+      <button class="btn btn--primary btn--block" type="submit">모집글 올리기</button>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="script.js?v=2"></script>
+</body>
+</html>
