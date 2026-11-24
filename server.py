@@ -75,6 +75,10 @@ CREATE TABLE IF NOT EXISTS room_messages (
   created    INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_room_messages ON room_messages(post_id, id);
+CREATE TABLE IF NOT EXISTS unlocks (
+  token      TEXT PRIMARY KEY,
+  created    INTEGER NOT NULL
+);
 DROP TABLE IF EXISTS messages;
 """
 # kind: msg(사람이 쓴 말) | sys(입장·퇴장 안내).  messages = 예전 전체 공개 채팅 테이블(폐기)
@@ -96,11 +100,26 @@ PRODUCE = [
 ]
 
 
-def pick_nickname(db: sqlite3.Connection, post_id: int) -> dict:
+# 🥚 이스터에그(바구니 합치기)에서 🎃 호박을 만든 사람은 수다방 프로필이 동물로 바뀜
+ANIMALS = [
+    ("강아지", "🐶"), ("고양이", "🐱"), ("토끼", "🐰"), ("햄스터", "🐹"), ("다람쥐", "🐿️"),
+    ("고슴도치", "🦔"), ("곰", "🐻"), ("판다", "🐼"), ("코알라", "🐨"), ("호랑이", "🐯"),
+    ("사자", "🦁"), ("돼지", "🐷"), ("개구리", "🐸"), ("원숭이", "🐵"), ("병아리", "🐤"),
+    ("펭귄", "🐧"), ("여우", "🦊"), ("너구리", "🦝"), ("수달", "🦦"), ("거북이", "🐢"),
+    ("부엉이", "🦉"), ("고래", "🐳"), ("오리", "🦆"), ("양", "🐑"),
+]
+
+
+def is_unlocked(db: sqlite3.Connection, token_h: str) -> bool:
+    return db.execute("SELECT 1 FROM unlocks WHERE token=?", (token_h,)).fetchone() is not None
+
+
+def pick_nickname(db: sqlite3.Connection, post_id: int, token_h: str | None = None, adjective: str | None = None) -> dict:
+    pool = ANIMALS if token_h and is_unlocked(db, token_h) else PRODUCE
     used = {r[0] for r in db.execute("SELECT emoji FROM members WHERE post_id=?", (post_id,))}
-    choices = [p for p in PRODUCE if p[1] not in used] or PRODUCE
+    choices = [p for p in pool if p[1] not in used] or pool
     name, emoji = secrets.choice(choices)
-    return {"name": f"{secrets.choice(ADJECTIVES)} {name}", "emoji": emoji}
+    return {"name": f"{adjective or secrets.choice(ADJECTIVES)} {name}", "emoji": emoji}
 
 
 def now_ms() -> int:
@@ -215,7 +234,7 @@ def system_message(db: sqlite3.Connection, post_id: int, text: str) -> None:
 
 
 def add_member(db: sqlite3.Connection, post_id: int, token_h: str, leader: bool = False) -> None:
-    who = pick_nickname(db, post_id)
+    who = pick_nickname(db, post_id, token_h)
     db.execute("INSERT INTO members (post_id, token, joined_at, name, emoji) VALUES (?,?,?,?,?)",
                (post_id, token_h, now_ms(), who["name"], who["emoji"]))
     if leader:
@@ -436,6 +455,37 @@ def room_send(post_id: int, body: ChatIn, request: Request, x_bwu_token: str | N
                    (post_id, post_id, CHAT_KEEP))
         row = db.execute("SELECT * FROM room_messages WHERE id=?", (cur.lastrowid,)).fetchone()
     return msg_row(row, me, post["owner"])
+
+
+# ---------- 🥚 이스터에그 클리어 보상 ----------
+@app.get("/api/egg")
+def egg_status(x_bwu_token: str | None = Header(default=None)):
+    me = optional_hash(x_bwu_token)
+    with connect() as db:
+        return {"unlocked": bool(me) and is_unlocked(db, me)}
+
+
+@app.post("/api/egg/clear")
+def egg_clear(x_bwu_token: str | None = Header(default=None)):
+    """🎃 호박을 만들면 호출. 참여 중인 모든 수다방 프로필을 동물로 바꾸고 방에 안내."""
+    me = token_hash(x_bwu_token)
+    with connect(write=True) as db:
+        if is_unlocked(db, me):
+            return {"unlocked": True, "already": True}
+        db.execute("INSERT INTO unlocks (token, created) VALUES (?,?)", (me, now_ms()))
+        rows = db.execute("SELECT post_id, name, emoji FROM members WHERE token=?", (me,)).fetchall()
+        for r in rows:
+            adjective = r["name"].split(" ")[0] if " " in r["name"] else None
+            # 내 자리는 빼고 겹치지 않는 동물 고르기
+            db.execute("UPDATE members SET emoji='' WHERE post_id=? AND token=?", (r["post_id"], me))
+            who = pick_nickname(db, r["post_id"], me, adjective)
+            db.execute("UPDATE members SET name=?, emoji=? WHERE post_id=? AND token=?",
+                       (who["name"], who["emoji"], r["post_id"], me))
+            db.execute("UPDATE room_messages SET name=?, emoji=? WHERE post_id=? AND token=? AND kind='msg'",
+                       (who["name"], who["emoji"], r["post_id"], me))
+            system_message(db, r["post_id"],
+                           f"🎃 {r['emoji']} {r['name']}님이 숨은 게임을 클리어하고 {who['emoji']} {who['name']}(으)로 변신했어요!")
+    return {"unlocked": True, "already": False, "rooms": len(rows)}
 
 
 app.mount("/", StaticFiles(directory=PUBLIC_DIR, html=True), name="public")

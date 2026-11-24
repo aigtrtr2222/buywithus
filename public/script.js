@@ -30,7 +30,7 @@
   async function startEgg() {
     try {
       if (!window.Matter) await loadScript('vendor/matter-0.20.0.min.js');
-      if (!window.BWUEgg) await loadScript('egg.js?v=2');
+      if (!window.BWUEgg) await loadScript('egg.js?v=3');
       window.BWUEgg.start();
     } catch (err) {
       console.warn('이스터에그를 불러오지 못했어요', err);

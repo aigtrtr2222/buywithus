@@ -1052,3 +1052,20 @@ body.is-locked .chat { display: none; }
   .egg__desc { font-size: 12px; }
   .egg__stage { width: min(360px, 100%, calc((100vh - 300px) * 0.6667)); }
 }
+
+/* 수다방: 프로필 이모지를 말풍선 높이에 맞춤 (시간 줄 때문에 아래로 처지던 문제) */
+.msg { align-items: flex-start; }
+.msg__ava { margin-top: 22px; }               /* 이름 줄(약 20px) 아래, 말풍선 가운데 */
+.msg.is-mine .msg__ava { margin-top: 2px; }   /* 내 메시지는 이름 줄 없음 */
+
+/* 이스터에그 클리어 */
+.egg__clear {
+  position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 6px;
+  padding: 20px; text-align: center;
+  background: radial-gradient(circle, rgba(255,246,214,.95) 0%, rgba(255,253,248,.9) 70%);
+  animation: modalIn .5s var(--ease-pop);
+}
+.egg__clear[hidden] { display: none; }
+.egg__clear-title { margin: 0; font-family: var(--font-display); font-size: 40px; color: var(--carrot); }
+.egg__clear-ani { margin: 0; font-size: 28px; letter-spacing: 4px; animation: egg-wobble 1.2s ease-in-out infinite; }
+.egg__clear-msg { margin: 0 0 6px; font-size: 14px; font-weight: 600; color: var(--ink); }

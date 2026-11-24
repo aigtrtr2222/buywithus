@@ -22,7 +22,7 @@
   const COOLDOWN = 450;
   const FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
 
-  let built = false, dlg, cv, ctx, $score, $best, $next, $over, $overScore;
+  let built = false, dlg, cv, ctx, $score, $best, $next, $over, $overScore, $clear, $clearMsg;
   let engine, raf = 0, last = 0, acc = 0;
   let aimX = W / 2, cur = 0, next = 0, canDrop = true, score = 0, best = 0, over = false;
   let dangerMs = 0, pops = [], pending = [], noMerge = false;
@@ -41,7 +41,8 @@
         <p class="egg__tag">🥚 EASTER EGG 발견!</p>
         <h3>바구니 합치기</h3>
         <p class="egg__desc">장바구니를 열 때 <b>10% 확률</b>로만 나타나는 숨은 게임이에요.
-          같은 과일·채소끼리 닿으면 한 단계 큰 걸로 합쳐져요. <b>🎃 호박</b>까지 키워보세요!</p>
+          같은 과일·채소끼리 닿으면 한 단계 큰 걸로 합쳐져요. <b>🎃 호박</b>을 만들면 클리어!
+          <br><b>클리어 보상:</b> 수다방 프로필이 🐿️ 동물로 바뀌어요.</p>
         <div class="egg__hud">
           <span>점수 <b id="eggScore">0</b></span>
           <span>최고 <b id="eggBest">0</b></span>
@@ -49,6 +50,12 @@
         </div>
         <div class="egg__stage">
           <canvas width="${W}" height="${H}" aria-label="게임 화면: 좌우로 움직여 위치를 정하고 눌러서 떨어뜨리기"></canvas>
+          <div class="egg__clear" hidden>
+            <p class="egg__clear-title">🎃 클리어!</p>
+            <p class="egg__clear-ani" aria-hidden="true">🐿️ 🦔 🐰 🐹 🦊</p>
+            <p class="egg__clear-msg"></p>
+            <button class="btn btn--primary btn--sm" type="button" data-egg-continue>계속 쌓기</button>
+          </div>
           <div class="egg__over" hidden>
             <p>바구니가 넘쳤어요! 🧺</p>
             <strong id="eggOverScore">0</strong>
@@ -70,6 +77,9 @@
     $next = dlg.querySelector('#eggNext');
     $over = dlg.querySelector('.egg__over');
     $overScore = dlg.querySelector('#eggOverScore');
+    $clear = dlg.querySelector('.egg__clear');
+    $clearMsg = dlg.querySelector('.egg__clear-msg');
+    dlg.querySelector('[data-egg-continue]').addEventListener('click', () => { $clear.hidden = true; });
 
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     cv.width = W * dpr; cv.height = H * dpr;
@@ -135,12 +145,32 @@
       if (t + 1 < TIERS.length) {
         spawn(t + 1, x, y, 0);
         addScore((t + 1) * (t + 2));
+        if (t + 1 === TIERS.length - 1) clear();
       } else {
         addScore(500);   // 🎃 + 🎃 → 사라지며 보너스
       }
       pops.push({ x, y, r: TIERS[Math.min(t + 1, TIERS.length - 1)].r, life: 1, e: TIERS[Math.min(t + 1, TIERS.length - 1)].e });
     }
     pending = [];
+  }
+
+  // 🎃 호박 완성 = 클리어 → 수다방 프로필이 동물로
+  let cleared = false;
+  async function clear() {
+    if (cleared) return;
+    cleared = true;
+    $clear.hidden = false;
+    $clearMsg.textContent = '수다방 프로필을 바꾸는 중…';
+    try {
+      const res = await api('/api/egg/clear', { method: 'POST' });
+      $clearMsg.textContent = res.already
+        ? '이미 동물 프로필을 받았어요. 다시 해도 멋져요!'
+        : '이제 수다방에서 과일·채소 대신 🐿️ 동물 프로필로 보여요!';
+      if (typeof Chat !== 'undefined') Chat.refresh();
+    } catch {
+      $clearMsg.textContent = '보상 저장에 실패했어요. 잠시 후 다시 클리어해보세요.';
+      cleared = false;
+    }
   }
 
   function addScore(n) {
@@ -265,7 +295,7 @@
   function reset() {
     if (engine) Matter.Engine.clear(engine);
     makeEngine();
-    score = 0; over = false; dangerMs = 0; pops = []; pending = []; canDrop = true; noMerge = false;
+    score = 0; over = false; dangerMs = 0; pops = []; pending = []; canDrop = true; noMerge = false; cleared = false; $clear.hidden = true;
     cur = rand(); next = rand(); aimX = W / 2;
     $score.textContent = 0;
     $best.textContent = best;

@@ -132,3 +132,35 @@ def test_upgrade_old_database(tmp_path, monkeypatch):
         rows = c.execute("SELECT name, emoji FROM members").fetchall()
         assert all(r["name"] and r["emoji"] for r in rows)
         assert not c.execute("SELECT name FROM sqlite_master WHERE name='messages'").fetchone()
+
+
+def test_egg_clear_turns_profile_into_animal(client):
+    animals = {e for _, e in client.server.ANIMALS}
+    produce = {e for _, e in client.server.PRODUCE}
+    pid = make(client, 1)
+    client.post(f"/api/posts/{pid}/join", headers=tok(2))
+    say(client, pid, 2, "전에 쓴 말")
+    before = next(m for m in chat(client, pid, 2).json()["members"] if m["me"])
+    assert before["emoji"] in produce
+    assert client.get("/api/egg", headers=tok(2)).json() == {"unlocked": False}
+
+    r = client.post("/api/egg/clear", headers=tok(2)).json()
+    assert r["unlocked"] and not r["already"] and r["rooms"] == 1
+    assert client.post("/api/egg/clear", headers=tok(2)).json()["already"]
+    assert client.get("/api/egg", headers=tok(2)).json() == {"unlocked": True}
+
+    data = chat(client, pid, 2).json()
+    after = next(m for m in data["members"] if m["me"])
+    assert after["emoji"] in animals
+    assert after["name"].split()[0] == before["name"].split()[0]          # 형용사는 유지
+    mine = [m for m in data["messages"] if m["mine"]]
+    assert mine and all(m["emoji"] == after["emoji"] for m in mine)       # 예전 말도 동물로
+    assert "변신했어요" in data["messages"][-1]["text"]
+    # 리더(클리어 안 함)는 그대로, 새로 참여하는 방도 동물
+    leader = next(m for m in data["members"] if m["leader"])
+    assert leader["emoji"] in produce
+    other = make(client, 3)
+    client.post(f"/api/posts/{other}/join", headers=tok(2))
+    me2 = next(m for m in chat(client, other, 2).json()["members"] if m["me"])
+    assert me2["emoji"] in animals
+    assert client.post("/api/egg/clear").status_code == 400
