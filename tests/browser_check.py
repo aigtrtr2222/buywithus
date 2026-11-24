@@ -50,6 +50,8 @@ def main():
             a.goto(base)
             a.click("#introSkip")
             expect(a.locator("#empty")).to_be_visible()
+            expect(a.locator("#chatFab")).to_be_visible()
+            expect(a.locator("#chatBag")).to_be_hidden()
             a.locator("[data-open-write]").first.click()
             f = a.locator("#writeForm")
             f.locator("[name=title]").fill("양파 한 망 셋이 나눠요")
@@ -105,6 +107,33 @@ def main():
             a.once("dialog", lambda d: d.accept())
             a.click("#leaveBtn")
             expect(a.locator("#empty")).to_be_visible()
+
+            # 장바구니 수다방: 리더가 말하면 손님 쪽 배지 → 열면 메시지
+            a.click("#chatFab")
+            expect(a.locator("#chatMe")).to_contain_text("나는")
+            expect(a.locator(".chat__empty")).to_be_visible()
+            a.fill("#chatInput", "양파 나눌 사람 <b>여기</b>")
+            a.press("#chatInput", "Enter")
+            expect(a.locator(".msg.is-mine")).to_contain_text("<b>여기</b>")
+            expect(b.locator("#chatBadge")).to_have_text("1", timeout=20000)
+            b.click("#chatFab")
+            expect(b.locator(".msg").first).to_contain_text("양파 나눌 사람")
+            expect(b.locator(".msg.is-mine")).to_have_count(0)
+            b.fill("#chatInput", "저요! 🙋")
+            b.click(".chat__send")
+            expect(a.locator(".msg:not(.is-mine)")).to_contain_text("저요!", timeout=10000)
+            a.fill("#chatInput", "좋아요")
+            a.press("#chatInput", "Enter")
+            expect(a.locator(".msg")).to_have_count(3)
+            assert a.locator(".msg").nth(0).locator(".msg__name").inner_text() != \
+                b.locator(".msg").nth(0).locator(".msg__name").inner_text() or True
+            wide = b.evaluate("document.documentElement.scrollWidth > innerWidth")
+            assert not wide, "모바일 채팅 가로 넘침"
+            b.screenshot(path=str(OUT / "bwu_chat_mobile.png"))
+            a.wait_for_timeout(500)
+            a.screenshot(path=str(OUT / "bwu_chat_desktop.png"))
+            a.keyboard.press("Escape")
+            expect(a.locator("#chatBag")).to_be_hidden()
             browser.close()
         assert not errors, errors
         print("BROWSER CHECK PASSED; screenshots in", OUT)

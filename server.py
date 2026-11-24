@@ -57,6 +57,14 @@ CREATE TABLE IF NOT EXISTS members (
 );
 CREATE INDEX IF NOT EXISTS idx_posts_meet ON posts(meet);
 CREATE INDEX IF NOT EXISTS idx_members_token ON members(token);
+CREATE TABLE IF NOT EXISTS messages (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  token      TEXT NOT NULL,
+  name       TEXT NOT NULL,
+  emoji      TEXT NOT NULL,
+  text       TEXT NOT NULL,
+  created    INTEGER NOT NULL
+);
 """
 
 
@@ -93,7 +101,7 @@ def connect(write: bool = False):
 # ---------- 간단한 IP별 요청 제한 ----------
 _hits: dict[tuple[str, str], deque] = defaultdict(deque)
 _hits_lock = threading.Lock()
-LIMITS = {"post": (5, 3600), "join": (30, 3600)}  # (횟수, 초)
+LIMITS = {"post": (5, 3600), "join": (30, 3600), "chat": (30, 60)}  # (횟수, 초)
 
 
 def rate_limit(request: Request, kind: str) -> None:
@@ -279,6 +287,70 @@ def delete_post(post_id: int, x_bwu_token: str | None = Header(default=None)):
             raise HTTPException(403, "작성자만 삭제할 수 있어요.")
         db.execute("DELETE FROM posts WHERE id=?", (post_id,))
     return {"ok": True}
+
+
+# ---------- 장바구니 수다방 (전체 채팅) ----------
+ADJECTIVES = [
+    "아삭한", "싱싱한", "새콤한", "달콤한", "말랑한", "통통한", "수줍은", "용감한",
+    "졸린", "배고픈", "반짝이는", "느긋한", "부지런한", "씩씩한", "엉뚱한", "다정한",
+    "포근한", "시원한", "상큼한", "고소한", "동글동글한", "튼튼한", "명랑한", "조용한",
+    "알뜰한", "꼼꼼한", "수다쟁이", "멋쟁이", "깔끔한", "행복한",
+]
+PRODUCE = [
+    ("당근", "🥕"), ("양파", "🧅"), ("토마토", "🍅"), ("브로콜리", "🥦"), ("감자", "🥔"),
+    ("고구마", "🍠"), ("옥수수", "🌽"), ("가지", "🍆"), ("오이", "🥒"), ("파프리카", "🫑"),
+    ("마늘", "🧄"), ("버섯", "🍄"), ("양배추", "🥬"), ("고추", "🌶️"), ("완두콩", "🫛"),
+    ("사과", "🍎"), ("배", "🍐"), ("귤", "🍊"), ("레몬", "🍋"), ("바나나", "🍌"),
+    ("수박", "🍉"), ("포도", "🍇"), ("딸기", "🍓"), ("블루베리", "🫐"), ("체리", "🍒"),
+    ("복숭아", "🍑"), ("망고", "🥭"), ("파인애플", "🍍"), ("키위", "🥝"), ("아보카도", "🥑"),
+]
+CHAT_KEEP = 500          # DB에 남길 최근 메시지 수
+CHAT_PAGE = 50           # 처음 열 때 보여줄 메시지 수
+CHAT_MAX_LEN = 200
+
+
+def chat_identity(token_h: str) -> dict:
+    """브라우저 토큰 해시로 항상 같은 닉네임/이모지를 만든다 (위조 불가)."""
+    n = int(token_h[:16], 16)
+    adj = ADJECTIVES[n % len(ADJECTIVES)]
+    name, emoji = PRODUCE[(n // len(ADJECTIVES)) % len(PRODUCE)]
+    return {"name": f"{adj} {name}", "emoji": emoji}
+
+
+def chat_row(row: sqlite3.Row, me: str | None) -> dict:
+    return {"id": row["id"], "name": row["name"], "emoji": row["emoji"],
+            "text": row["text"], "ts": row["created"], "mine": me is not None and row["token"] == me}
+
+
+class ChatIn(BaseModel):
+    text: str = Field(min_length=1, max_length=CHAT_MAX_LEN)
+
+
+@app.get("/api/chat")
+def chat_list(after: int = 0, x_bwu_token: str | None = Header(default=None)):
+    me = optional_hash(x_bwu_token)
+    with connect() as db:
+        if after > 0:
+            rows = db.execute("SELECT * FROM messages WHERE id > ? ORDER BY id LIMIT 100", (after,)).fetchall()
+        else:
+            rows = db.execute("SELECT * FROM messages ORDER BY id DESC LIMIT ?", (CHAT_PAGE,)).fetchall()[::-1]
+    return {"me": chat_identity(me) if me else None, "messages": [chat_row(r, me) for r in rows]}
+
+
+@app.post("/api/chat", status_code=201)
+def chat_send(body: ChatIn, request: Request, x_bwu_token: str | None = Header(default=None)):
+    me = token_hash(x_bwu_token)
+    text = " ".join(body.text.split())  # 줄바꿈·연속 공백 정리
+    if not text:
+        raise HTTPException(422, "메시지를 입력해주세요.")
+    rate_limit(request, "chat")
+    who = chat_identity(me)
+    with connect(write=True) as db:
+        cur = db.execute("INSERT INTO messages (token,name,emoji,text,created) VALUES (?,?,?,?,?)",
+                         (me, who["name"], who["emoji"], text, now_ms()))
+        db.execute("DELETE FROM messages WHERE id <= ?", (cur.lastrowid - CHAT_KEEP,))
+        row = db.execute("SELECT * FROM messages WHERE id = ?", (cur.lastrowid,)).fetchone()
+    return chat_row(row, me)
 
 
 app.mount("/", StaticFiles(directory=PUBLIC_DIR, html=True), name="public")

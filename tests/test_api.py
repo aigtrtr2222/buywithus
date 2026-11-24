@@ -110,3 +110,35 @@ def test_data_persists_across_restart(client, tmp_path):
     server = importlib.import_module("server")
     with TestClient(server.app) as c2:
         assert len(c2.get("/api/posts").json()["posts"]) == 1
+
+
+def test_chat_identity_and_messages(client):
+    me1 = client.get("/api/chat", headers=tok(1)).json()["me"]
+    assert me1 == client.get("/api/chat", headers=tok(1)).json()["me"]  # 같은 브라우저 = 같은 닉네임
+    assert client.get("/api/chat").json()["me"] is None
+    names = {client.get("/api/chat", headers=tok(n)).json()["me"]["name"] for n in range(40)}
+    assert len(names) > 20  # 닉네임이 골고루 섞임
+
+    r = client.post("/api/chat", json={"text": "  안녕\n\n<b>하세요</b>  "}, headers=tok(1))
+    assert r.status_code == 201
+    m = r.json()
+    assert m["text"] == "안녕 <b>하세요</b>" and m["mine"] and m["name"] == me1["name"]
+    client.post("/api/chat", json={"text": "반가워요"}, headers=tok(2))
+
+    other = client.get("/api/chat", headers=tok(2)).json()["messages"]
+    assert [x["mine"] for x in other] == [False, True]
+    assert "token" not in other[0]
+    assert len(client.get(f"/api/chat?after={m['id']}").json()["messages"]) == 1
+
+    assert client.post("/api/chat", json={"text": "   "}, headers=tok(1)).status_code == 422
+    assert client.post("/api/chat", json={"text": "가" * 201}, headers=tok(1)).status_code == 422
+    assert client.post("/api/chat", json={"text": "hi"}).status_code == 400
+
+
+def test_chat_keeps_recent_only(client):
+    client.server.CHAT_KEEP = 5
+    client.server.LIMITS["chat"] = (1000, 60)
+    for i in range(12):
+        client.post("/api/chat", json={"text": f"m{i}"}, headers=tok(1))
+    msgs = client.get("/api/chat").json()["messages"]
+    assert [x["text"] for x in msgs] == [f"m{i}" for i in range(7, 12)]

@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=3" />
 </head>
 <body class="is-locked">
 
@@ -351,8 +351,31 @@
     </form>
   </dialog>
 
+  <!-- ============ 장바구니 수다방 (종이봉투 채팅) ============ -->
+  <aside class="chat" id="chat">
+    <section class="chat__bag" id="chatBag" aria-label="장바구니 수다방" hidden>
+      <header class="chat__head">
+        <div>
+          <b class="chat__title">장바구니 수다방</b>
+          <p class="chat__me" id="chatMe">바구니에 들어가는 중…</p>
+        </div>
+        <button class="chat__x" id="chatClose" type="button" aria-label="채팅 닫기">×</button>
+      </header>
+      <ol class="chat__list" id="chatList" aria-live="polite"></ol>
+      <form class="chat__form" id="chatForm" autocomplete="off">
+        <input id="chatInput" maxlength="200" placeholder="바구니 친구들에게 한마디" aria-label="메시지" />
+        <button class="chat__send" type="submit" aria-label="보내기">➤</button>
+      </form>
+    </section>
+    <button class="chat__fab" id="chatFab" type="button" aria-expanded="false" aria-controls="chatBag">
+      <span class="chat__fab-fruits" aria-hidden="true">🥕🍎🥬</span>
+      <span class="chat__fab-label">수다방</span>
+      <span class="chat__badge" id="chatBadge" hidden>0</span>
+    </button>
+  </aside>
+
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="script.js?v=2"></script>
+  <script src="script.js?v=3"></script>
 </body>
 </html>

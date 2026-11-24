@@ -389,3 +389,118 @@ function toast(msg) {
 }
 
 load();
+
+/* ---------- 6. 장바구니 수다방 (전체 채팅) ---------- */
+(() => {
+  const $fab = document.getElementById('chatFab');
+  const $bag = document.getElementById('chatBag');
+  const $list = document.getElementById('chatList');
+  const $me = document.getElementById('chatMe');
+  const $form = document.getElementById('chatForm');
+  const $input = document.getElementById('chatInput');
+  const $badge = document.getElementById('chatBadge');
+  const $send = $form.querySelector('.chat__send');
+
+  let lastId = 0;
+  let unread = 0;
+  let started = false;
+  let busy = false;
+  let lastAuthor = null; // 같은 사람이 연달아 말하면 프로필 생략
+  const isOpen = () => !$bag.hidden;
+  const fmtTime = (t) => new Intl.DateTimeFormat('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false }).format(t);
+
+  function setBadge() {
+    $badge.hidden = unread === 0;
+    $badge.textContent = unread > 99 ? '99+' : unread;
+  }
+
+  function append(msgs) {
+    if (!msgs.length) return;
+    $list.querySelector('.chat__empty')?.remove();
+    const nearBottom = $list.scrollHeight - $list.scrollTop - $list.clientHeight < 80;
+    const html = msgs.filter((m) => m.id > lastId).map((m) => {
+      const author = `${m.name}|${m.mine}`;
+      const cont = author === lastAuthor;
+      lastAuthor = author;
+      lastId = Math.max(lastId, m.id);
+      return `
+        <li class="msg ${m.mine ? 'is-mine' : ''} ${cont ? 'is-cont' : ''}">
+          <span class="msg__ava" aria-hidden="true">${esc(m.emoji)}</span>
+          <div class="msg__body">
+            <span class="msg__name">${esc(m.name)}</span>
+            <p class="msg__bubble">${esc(m.text)}</p>
+            <time class="msg__time">${fmtTime(m.ts)}</time>
+          </div>
+        </li>`;
+    }).join('');
+    $list.insertAdjacentHTML('beforeend', html);
+    if (nearBottom || msgs.some((m) => m.mine)) $list.scrollTop = $list.scrollHeight;
+  }
+
+  async function poll() {
+    if (busy) return;
+    busy = true;
+    try {
+      const data = await api(`/api/chat?after=${lastId}`);
+      if (data.me) $me.innerHTML = `나는 ${esc(data.me.emoji)} <b>${esc(data.me.name)}</b>`;
+      const fresh = data.messages.filter((m) => m.id > lastId);
+      if (!started) {
+        started = true;
+        if (!fresh.length) $list.innerHTML = '<li class="chat__empty">아직 조용한 바구니예요.<br>먼저 인사해볼까요? 👋</li>';
+      } else if (!isOpen()) {
+        unread += fresh.filter((m) => !m.mine).length;
+        setBadge();
+      }
+      append(fresh);
+    } catch (err) {
+      console.warn('채팅을 불러오지 못했어요', err);
+    } finally {
+      busy = false;
+    }
+  }
+
+  function toggle(open) {
+    $bag.hidden = !open;
+    $fab.setAttribute('aria-expanded', String(open));
+    if (open) {
+      unread = 0;
+      setBadge();
+      $list.scrollTop = $list.scrollHeight;
+      poll();
+      if (matchMedia('(hover: hover)').matches) $input.focus();
+    } else {
+      $fab.focus();
+    }
+  }
+
+  $fab.addEventListener('click', () => toggle(!isOpen()));
+  document.getElementById('chatClose').addEventListener('click', () => toggle(false));
+  $bag.addEventListener('keydown', (e) => { if (e.key === 'Escape') toggle(false); });
+
+  $form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const text = $input.value.trim();
+    if (!text) return;
+    $send.disabled = true;
+    try {
+      const m = await api('/api/chat', { method: 'POST', body: JSON.stringify({ text }) });
+      $input.value = '';
+      await poll();       // 그사이 다른 사람 메시지 먼저 붙이고
+      append([m]);        // 내 메시지 (이미 붙었으면 무시됨)
+    } catch (err) {
+      toast(err.message);
+    } finally {
+      $send.disabled = false;
+      $input.focus();
+    }
+  });
+
+  // 열려 있으면 3초, 닫혀 있으면 15초마다 새 메시지 확인 (탭이 보일 때만)
+  let tick = 0;
+  setInterval(() => {
+    tick += 1;
+    if (document.hidden) return;
+    if (isOpen() || tick % 5 === 0) poll();
+  }, 3000);
+  poll();
+})();
