@@ -856,8 +856,8 @@ body.is-locked .chat { display: none; }
   color: var(--kraft-ink);
 }
 .chat__title { font-family: var(--font-display); font-weight: 400; font-size: 19px; }
-.chat__me { margin: 0; font-size: 12px; color: rgba(74,58,34,.75); }
-.chat__me b { color: var(--kraft-ink); }
+
+
 .chat__x {
   width: 30px; height: 30px; flex: none; border: 0; border-radius: 50%;
   background: rgba(255,253,248,.55); color: var(--kraft-ink); font-size: 18px; line-height: 1;
@@ -919,3 +919,59 @@ body.is-locked .chat { display: none; }
   .chat__bag::after { display: none; }
   .chat__fab { width: 72px; padding: 14px 0 8px; }
 }
+
+/* ---------- 공구 수다방: 방 목록 / 참여자 / 안내 메시지 ---------- */
+.chat[hidden], .chat [hidden], .kakao[hidden] { display: none !important; }
+.join-done #openRoomBtn { margin-bottom: 10px; }
+
+.chat__head-text { flex: 1; min-width: 0; }
+.chat__title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat__sub { margin: 0; font-size: 12px; color: rgba(74,58,34,.75); }
+.chat__sub b { color: var(--kraft-ink); }
+.chat__back {
+  width: 30px; height: 30px; flex: none; margin-left: -8px; border: 0; border-radius: 50%;
+  background: rgba(255,253,248,.55); color: var(--kraft-ink); font-size: 16px; line-height: 1;
+}
+.chat__back:hover { background: var(--paper); }
+
+/* 참여자 줄: 바구니 안 과일들 */
+.chat__members {
+  display: flex; gap: 6px; margin: 0; padding: 8px 14px 8px 26px; list-style: none;
+  overflow-x: auto; scrollbar-width: none;
+  border-bottom: 1px solid rgba(120,84,40,.2);
+}
+.chat__members li {
+  position: relative; flex: none;
+  display: flex; align-items: center; gap: 4px;
+  padding: 3px 9px 3px 4px; border-radius: 999px;
+  background: rgba(255,253,248,.6); font-size: 11px; font-weight: 600; color: var(--kraft-ink);
+}
+.chat__members li.is-me { background: var(--paper); box-shadow: inset 0 0 0 1.5px var(--green); }
+.chat__members .ava { font-size: 15px; }
+
+/* 방 목록 */
+.chat__rooms { flex: 1; overflow-y: auto; margin: 0; padding: 12px 14px 12px 24px; list-style: none; display: grid; align-content: start; gap: 8px; }
+.room {
+  width: 100%; display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 10px;
+  padding: 10px 12px; border: 0; border-radius: 12px; text-align: left;
+  background: rgba(255,253,248,.72); color: var(--ink);
+  box-shadow: 0 1px 0 rgba(120,84,40,.2);
+  transition: transform .2s var(--ease-pop), background .2s;
+}
+.room:hover { background: var(--paper); transform: translateY(-1px); }
+.room__ico { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-size: 20px; background: var(--beige-2); }
+.room__main { min-width: 0; display: grid; }
+.room__title { font-weight: 700; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.room__last { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.room__meta { display: grid; justify-items: end; gap: 4px; font-size: 11px; color: var(--muted); }
+.room__dot { width: 9px; height: 9px; border-radius: 50%; background: var(--tomato); }
+.chat__rooms .chat__empty { padding: 40px 10px; }
+
+/* 입장·퇴장 안내 */
+.msg-sys {
+  align-self: center; max-width: 90%; margin: 2px 0;
+  padding: 4px 12px; border-radius: 999px;
+  background: rgba(255,253,248,.45); color: rgba(74,58,34,.8);
+  font-size: 11px; text-align: center;
+}
+.msg__crown { font-size: 10px; margin-left: 3px; }

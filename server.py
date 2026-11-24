@@ -1,13 +1,14 @@
 """나 혼자 안산다 | Buy With Us — 공동구매 게시판 서버 (FastAPI + SQLite).
 
 로그인 없이 브라우저마다 만든 무작위 토큰(X-BWU-Token)으로 작성자/참여자를 구분한다.
-오픈채팅 링크는 그 글에 참여한 토큰에게만 응답한다.
+모집글마다 참여자끼리만 쓰는 '수다방'(채팅)이 있고, 오픈채팅 링크(선택)도 참여자에게만 응답한다.
 """
 from __future__ import annotations
 
 import hashlib
 import os
 import re
+import secrets
 import sqlite3
 import threading
 import time
@@ -29,7 +30,11 @@ CATS = {"veg", "fruit", "meat", "dairy", "daily"}
 KAKAO_RE = re.compile(r"^https://open\.kakao\.com/[A-Za-z0-9/_\-?=&.%]+$")
 TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{32,128}$")
 DAY_MS = 24 * 3600 * 1000
-KEEP_AFTER_MEET_MS = DAY_MS  # 만남 시간 하루 뒤까지는 목록에 남김
+KEEP_AFTER_MEET_MS = DAY_MS      # 만남 시간 하루 뒤까지는 게시판에 남김
+ROOM_KEEP_MS = 3 * DAY_MS        # 수다방은 만남 후 3일까지 (정산 이야기용)
+CHAT_KEEP = 300                  # 방마다 남길 최근 메시지 수
+CHAT_PAGE = 80                   # 방을 처음 열 때 보여줄 메시지 수
+CHAT_MAX_LEN = 300
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS posts (
@@ -44,7 +49,7 @@ CREATE TABLE IF NOT EXISTS posts (
   meet       INTEGER NOT NULL,
   deadline   INTEGER NOT NULL,
   leader     TEXT NOT NULL,
-  kakao      TEXT NOT NULL,
+  kakao      TEXT NOT NULL DEFAULT '',
   memo       TEXT NOT NULL DEFAULT '',
   owner      TEXT NOT NULL,
   created    INTEGER NOT NULL
@@ -53,19 +58,49 @@ CREATE TABLE IF NOT EXISTS members (
   post_id    INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
   token      TEXT NOT NULL,
   joined_at  INTEGER NOT NULL,
+  name       TEXT NOT NULL DEFAULT '',
+  emoji      TEXT NOT NULL DEFAULT '',
   PRIMARY KEY (post_id, token)
 );
 CREATE INDEX IF NOT EXISTS idx_posts_meet ON posts(meet);
 CREATE INDEX IF NOT EXISTS idx_members_token ON members(token);
-CREATE TABLE IF NOT EXISTS messages (
+CREATE TABLE IF NOT EXISTS room_messages (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  token      TEXT NOT NULL,
-  name       TEXT NOT NULL,
-  emoji      TEXT NOT NULL,
+  post_id    INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+  token      TEXT NOT NULL DEFAULT '',
+  name       TEXT NOT NULL DEFAULT '',
+  emoji      TEXT NOT NULL DEFAULT '',
+  kind       TEXT NOT NULL DEFAULT 'msg',
   text       TEXT NOT NULL,
   created    INTEGER NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_room_messages ON room_messages(post_id, id);
+DROP TABLE IF EXISTS messages;
 """
+# kind: msg(사람이 쓴 말) | sys(입장·퇴장 안내).  messages = 예전 전체 공개 채팅 테이블(폐기)
+
+# ---------- 수다방 닉네임: 랜덤 형용사 + 야채/과일 (한 방 안에서 겹치지 않게) ----------
+ADJECTIVES = [
+    "아삭한", "싱싱한", "새콤한", "달콤한", "말랑한", "통통한", "수줍은", "용감한",
+    "졸린", "배고픈", "반짝이는", "느긋한", "부지런한", "씩씩한", "엉뚱한", "다정한",
+    "포근한", "시원한", "상큼한", "고소한", "동글동글한", "튼튼한", "명랑한", "조용한",
+    "알뜰한", "꼼꼼한", "수다쟁이", "멋쟁이", "깔끔한", "행복한",
+]
+PRODUCE = [
+    ("당근", "🥕"), ("양파", "🧅"), ("토마토", "🍅"), ("브로콜리", "🥦"), ("감자", "🥔"),
+    ("고구마", "🍠"), ("옥수수", "🌽"), ("가지", "🍆"), ("오이", "🥒"), ("파프리카", "🫑"),
+    ("마늘", "🧄"), ("버섯", "🍄"), ("양배추", "🥬"), ("고추", "🌶️"), ("완두콩", "🫛"),
+    ("사과", "🍎"), ("배", "🍐"), ("귤", "🍊"), ("레몬", "🍋"), ("바나나", "🍌"),
+    ("수박", "🍉"), ("포도", "🍇"), ("딸기", "🍓"), ("블루베리", "🫐"), ("체리", "🍒"),
+    ("복숭아", "🍑"), ("망고", "🥭"), ("파인애플", "🍍"), ("키위", "🥝"), ("아보카도", "🥑"),
+]
+
+
+def pick_nickname(db: sqlite3.Connection, post_id: int) -> dict:
+    used = {r[0] for r in db.execute("SELECT emoji FROM members WHERE post_id=?", (post_id,))}
+    choices = [p for p in PRODUCE if p[1] not in used] or PRODUCE
+    name, emoji = secrets.choice(choices)
+    return {"name": f"{secrets.choice(ADJECTIVES)} {name}", "emoji": emoji}
 
 
 def now_ms() -> int:
@@ -76,7 +111,15 @@ def init_db() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(DB_PATH) as db:
         db.execute("PRAGMA journal_mode=WAL")
+        cols = {r[1] for r in db.execute("PRAGMA table_info(members)")}
+        if cols and "name" not in cols:  # 예전 DB 업그레이드
+            db.execute("ALTER TABLE members ADD COLUMN name TEXT NOT NULL DEFAULT ''")
+            db.execute("ALTER TABLE members ADD COLUMN emoji TEXT NOT NULL DEFAULT ''")
         db.executescript(SCHEMA)
+        for post_id, token in db.execute("SELECT post_id, token FROM members WHERE name = ''").fetchall():
+            who = pick_nickname(db, post_id)
+            db.execute("UPDATE members SET name=?, emoji=? WHERE post_id=? AND token=?",
+                       (who["name"], who["emoji"], post_id, token))
 
 
 @contextmanager
@@ -127,6 +170,7 @@ def optional_hash(token: str | None) -> str | None:
     return hashlib.sha256(token.encode()).hexdigest() if token and TOKEN_RE.match(token) else None
 
 
+# ---------- 모집글 ----------
 def serialize(row: sqlite3.Row, me: str | None) -> dict:
     mine = bool(row["mine"])
     return {
@@ -146,7 +190,7 @@ def serialize(row: sqlite3.Row, me: str | None) -> dict:
         "created": row["created"],
         "mine": mine,
         "isLeader": me is not None and row["owner"] == me,
-        "kakao": row["kakao"] if mine else None,  # 참여자에게만 공개
+        "kakao": (row["kakao"] or None) if mine else None,  # 참여자에게만 공개
     }
 
 
@@ -165,6 +209,21 @@ def fetch_post(db: sqlite3.Connection, post_id: int, me: str | None) -> sqlite3.
     return row
 
 
+def system_message(db: sqlite3.Connection, post_id: int, text: str) -> None:
+    db.execute("INSERT INTO room_messages (post_id, kind, text, created) VALUES (?,?,?,?)",
+               (post_id, "sys", text, now_ms()))
+
+
+def add_member(db: sqlite3.Connection, post_id: int, token_h: str, leader: bool = False) -> None:
+    who = pick_nickname(db, post_id)
+    db.execute("INSERT INTO members (post_id, token, joined_at, name, emoji) VALUES (?,?,?,?,?)",
+               (post_id, token_h, now_ms(), who["name"], who["emoji"]))
+    if leader:
+        system_message(db, post_id, f"👑 리더 {who['emoji']} {who['name']}님이 수다방을 열었어요. 참여한 사람끼리만 보여요.")
+    else:
+        system_message(db, post_id, f"{who['emoji']} {who['name']}님이 들어왔어요")
+
+
 class PostIn(BaseModel):
     cat: str
     title: str = Field(min_length=1, max_length=40)
@@ -176,7 +235,7 @@ class PostIn(BaseModel):
     meet: int
     deadline: int
     leader: str = Field(min_length=1, max_length=12)
-    kakao: str = Field(max_length=200)
+    kakao: str = Field(default="", max_length=200)  # 선택: 수다방이 기본 연락 수단
     memo: str = Field(default="", max_length=200)
 
 
@@ -227,8 +286,8 @@ def create_post(body: PostIn, request: Request, x_bwu_token: str | None = Header
             raise HTTPException(422, "빈 칸을 채워주세요.")
     if data["cat"] not in CATS:
         raise HTTPException(422, "카테고리를 골라주세요.")
-    if not KAKAO_RE.match(data["kakao"]):
-        raise HTTPException(422, "오픈카카오톡 링크(https://open.kakao.com/...)를 넣어주세요.")
+    if data["kakao"] and not KAKAO_RE.match(data["kakao"]):
+        raise HTTPException(422, "오픈카카오톡 링크는 https://open.kakao.com/... 형식이어야 해요.")
     t = now_ms()
     if data["deadline"] <= t:
         raise HTTPException(422, "모집 마감 시간은 지금 이후여야 해요.")
@@ -245,7 +304,7 @@ def create_post(body: PostIn, request: Request, x_bwu_token: str | None = Header
             {**data, "owner": me, "created": t},
         )
         post_id = cur.lastrowid
-        db.execute("INSERT INTO members VALUES (?,?,?)", (post_id, me, t))  # 작성자 = 리더
+        add_member(db, post_id, me, leader=True)  # 작성자 = 리더
         row = fetch_post(db, post_id, me)
     return serialize(row, me)
 
@@ -261,7 +320,7 @@ def join_post(post_id: int, request: Request, x_bwu_token: str | None = Header(d
             if row["joined"] >= row["max"]:
                 raise HTTPException(409, "인원이 다 찼어요.")
             rate_limit(request, "join")
-            db.execute("INSERT INTO members VALUES (?,?,?)", (post_id, me, now_ms()))
+            add_member(db, post_id, me)
             row = fetch_post(db, post_id, me)
     return serialize(row, me)
 
@@ -273,7 +332,10 @@ def leave_post(post_id: int, x_bwu_token: str | None = Header(default=None)):
         row = fetch_post(db, post_id, me)
         if row["owner"] == me:
             raise HTTPException(409, "리더는 참여 취소 대신 모집글을 삭제해주세요.")
-        db.execute("DELETE FROM members WHERE post_id=? AND token=?", (post_id, me))
+        who = db.execute("SELECT name, emoji FROM members WHERE post_id=? AND token=?", (post_id, me)).fetchone()
+        if who:
+            db.execute("DELETE FROM members WHERE post_id=? AND token=?", (post_id, me))
+            system_message(db, post_id, f"{who['emoji']} {who['name']}님이 나갔어요")
         row = fetch_post(db, post_id, me)
     return serialize(row, me)
 
@@ -285,72 +347,95 @@ def delete_post(post_id: int, x_bwu_token: str | None = Header(default=None)):
         row = fetch_post(db, post_id, me)
         if row["owner"] != me:
             raise HTTPException(403, "작성자만 삭제할 수 있어요.")
-        db.execute("DELETE FROM posts WHERE id=?", (post_id,))
+        db.execute("DELETE FROM posts WHERE id=?", (post_id,))  # 수다방·참여자도 함께 삭제
     return {"ok": True}
 
 
-# ---------- 장바구니 수다방 (전체 채팅) ----------
-ADJECTIVES = [
-    "아삭한", "싱싱한", "새콤한", "달콤한", "말랑한", "통통한", "수줍은", "용감한",
-    "졸린", "배고픈", "반짝이는", "느긋한", "부지런한", "씩씩한", "엉뚱한", "다정한",
-    "포근한", "시원한", "상큼한", "고소한", "동글동글한", "튼튼한", "명랑한", "조용한",
-    "알뜰한", "꼼꼼한", "수다쟁이", "멋쟁이", "깔끔한", "행복한",
-]
-PRODUCE = [
-    ("당근", "🥕"), ("양파", "🧅"), ("토마토", "🍅"), ("브로콜리", "🥦"), ("감자", "🥔"),
-    ("고구마", "🍠"), ("옥수수", "🌽"), ("가지", "🍆"), ("오이", "🥒"), ("파프리카", "🫑"),
-    ("마늘", "🧄"), ("버섯", "🍄"), ("양배추", "🥬"), ("고추", "🌶️"), ("완두콩", "🫛"),
-    ("사과", "🍎"), ("배", "🍐"), ("귤", "🍊"), ("레몬", "🍋"), ("바나나", "🍌"),
-    ("수박", "🍉"), ("포도", "🍇"), ("딸기", "🍓"), ("블루베리", "🫐"), ("체리", "🍒"),
-    ("복숭아", "🍑"), ("망고", "🥭"), ("파인애플", "🍍"), ("키위", "🥝"), ("아보카도", "🥑"),
-]
-CHAT_KEEP = 500          # DB에 남길 최근 메시지 수
-CHAT_PAGE = 50           # 처음 열 때 보여줄 메시지 수
-CHAT_MAX_LEN = 200
+# ---------- 공구별 수다방 (참여자끼리만) ----------
+def require_member(db: sqlite3.Connection, post_id: int, me: str) -> sqlite3.Row:
+    post = db.execute("SELECT id, owner FROM posts WHERE id=?", (post_id,)).fetchone()
+    if not post:
+        raise HTTPException(404, "없는 모집글이에요.")
+    if not db.execute("SELECT 1 FROM members WHERE post_id=? AND token=?", (post_id, me)).fetchone():
+        raise HTTPException(403, "이 공구에 참여한 사람만 수다방에 들어갈 수 있어요.")
+    return post
 
 
-def chat_identity(token_h: str) -> dict:
-    """브라우저 토큰 해시로 항상 같은 닉네임/이모지를 만든다 (위조 불가)."""
-    n = int(token_h[:16], 16)
-    adj = ADJECTIVES[n % len(ADJECTIVES)]
-    name, emoji = PRODUCE[(n // len(ADJECTIVES)) % len(PRODUCE)]
-    return {"name": f"{adj} {name}", "emoji": emoji}
-
-
-def chat_row(row: sqlite3.Row, me: str | None) -> dict:
-    return {"id": row["id"], "name": row["name"], "emoji": row["emoji"],
-            "text": row["text"], "ts": row["created"], "mine": me is not None and row["token"] == me}
+def msg_row(row: sqlite3.Row, me: str, owner: str) -> dict:
+    is_msg = row["kind"] == "msg"
+    return {"id": row["id"], "kind": row["kind"], "name": row["name"], "emoji": row["emoji"],
+            "text": row["text"], "ts": row["created"],
+            "mine": is_msg and row["token"] == me, "leader": is_msg and row["token"] == owner}
 
 
 class ChatIn(BaseModel):
     text: str = Field(min_length=1, max_length=CHAT_MAX_LEN)
 
 
-@app.get("/api/chat")
-def chat_list(after: int = 0, x_bwu_token: str | None = Header(default=None)):
+@app.get("/api/rooms")
+def my_rooms(x_bwu_token: str | None = Header(default=None)):
+    """내가 참여한 공구 수다방 목록 + 마지막 메시지."""
     me = optional_hash(x_bwu_token)
+    if not me:
+        return {"rooms": []}
     with connect() as db:
+        rows = db.execute(
+            """SELECT p.id, p.title, p.cat, p.max, p.meet, p.owner, m.name AS my_name, m.emoji AS my_emoji,
+                      (SELECT COUNT(*) FROM members x WHERE x.post_id = p.id) AS joined,
+                      (SELECT MAX(id) FROM room_messages r WHERE r.post_id = p.id) AS last_id
+               FROM members m JOIN posts p ON p.id = m.post_id
+               WHERE m.token = ? AND p.meet > ?""",
+            (me, now_ms() - ROOM_KEEP_MS),
+        ).fetchall()
+        rooms = []
+        for r in rows:
+            last = db.execute("SELECT * FROM room_messages WHERE id=?", (r["last_id"],)).fetchone() if r["last_id"] else None
+            rooms.append({
+                "id": r["id"], "title": r["title"], "cat": r["cat"], "joined": r["joined"], "max": r["max"],
+                "meet": r["meet"], "isLeader": r["owner"] == me,
+                "me": {"name": r["my_name"], "emoji": r["my_emoji"]},
+                "last": msg_row(last, me, r["owner"]) if last else None,
+            })
+    rooms.sort(key=lambda x: -(x["last"]["id"] if x["last"] else 0))
+    return {"rooms": rooms}
+
+
+@app.get("/api/posts/{post_id}/chat")
+def room_messages(post_id: int, after: int = 0, x_bwu_token: str | None = Header(default=None)):
+    me = token_hash(x_bwu_token)
+    with connect() as db:
+        post = require_member(db, post_id, me)
         if after > 0:
-            rows = db.execute("SELECT * FROM messages WHERE id > ? ORDER BY id LIMIT 100", (after,)).fetchall()
+            rows = db.execute("SELECT * FROM room_messages WHERE post_id=? AND id>? ORDER BY id LIMIT 200",
+                              (post_id, after)).fetchall()
         else:
-            rows = db.execute("SELECT * FROM messages ORDER BY id DESC LIMIT ?", (CHAT_PAGE,)).fetchall()[::-1]
-    return {"me": chat_identity(me) if me else None, "messages": [chat_row(r, me) for r in rows]}
+            rows = db.execute("SELECT * FROM room_messages WHERE post_id=? ORDER BY id DESC LIMIT ?",
+                              (post_id, CHAT_PAGE)).fetchall()[::-1]
+        members = [
+            {"name": m["name"], "emoji": m["emoji"], "leader": m["token"] == post["owner"], "me": m["token"] == me}
+            for m in db.execute("SELECT token, name, emoji FROM members WHERE post_id=? ORDER BY joined_at", (post_id,))
+        ]
+    return {"members": members, "messages": [msg_row(r, me, post["owner"]) for r in rows]}
 
 
-@app.post("/api/chat", status_code=201)
-def chat_send(body: ChatIn, request: Request, x_bwu_token: str | None = Header(default=None)):
+@app.post("/api/posts/{post_id}/chat", status_code=201)
+def room_send(post_id: int, body: ChatIn, request: Request, x_bwu_token: str | None = Header(default=None)):
     me = token_hash(x_bwu_token)
     text = " ".join(body.text.split())  # 줄바꿈·연속 공백 정리
     if not text:
         raise HTTPException(422, "메시지를 입력해주세요.")
     rate_limit(request, "chat")
-    who = chat_identity(me)
     with connect(write=True) as db:
-        cur = db.execute("INSERT INTO messages (token,name,emoji,text,created) VALUES (?,?,?,?,?)",
-                         (me, who["name"], who["emoji"], text, now_ms()))
-        db.execute("DELETE FROM messages WHERE id <= ?", (cur.lastrowid - CHAT_KEEP,))
-        row = db.execute("SELECT * FROM messages WHERE id = ?", (cur.lastrowid,)).fetchone()
-    return chat_row(row, me)
+        post = require_member(db, post_id, me)
+        who = db.execute("SELECT name, emoji FROM members WHERE post_id=? AND token=?", (post_id, me)).fetchone()
+        cur = db.execute(
+            "INSERT INTO room_messages (post_id, token, name, emoji, kind, text, created) VALUES (?,?,?,?,?,?,?)",
+            (post_id, me, who["name"], who["emoji"], "msg", text, now_ms()))
+        db.execute("""DELETE FROM room_messages WHERE post_id=? AND id NOT IN
+                      (SELECT id FROM room_messages WHERE post_id=? ORDER BY id DESC LIMIT ?)""",
+                   (post_id, post_id, CHAT_KEEP))
+        row = db.execute("SELECT * FROM room_messages WHERE id=?", (cur.lastrowid,)).fetchone()
+    return msg_row(row, me, post["owner"])
 
 
 app.mount("/", StaticFiles(directory=PUBLIC_DIR, html=True), name="public")

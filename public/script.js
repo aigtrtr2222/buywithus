@@ -167,7 +167,7 @@ function render() {
     const mine = p.mine;
     const pct = Math.round((p.joined / p.max) * 100);
     const btn = mine
-      ? `<button class="btn is-joined" data-join="${p.id}" type="button">💬 ${p.isLeader ? '내 모집글' : '오픈채팅'}</button>`
+      ? `<button class="btn is-joined" data-join="${p.id}" type="button">🧺 ${p.isLeader ? '내 모집글' : '수다방'}</button>`
       : closed
         ? `<button class="btn btn--ghost" type="button" disabled>${p.joined >= p.max ? '인원 마감' : '모집 마감'}</button>`
         : `<button class="btn btn--primary" data-join="${p.id}" type="button">참여하기</button>`;
@@ -227,7 +227,7 @@ document.querySelectorAll('.chip').forEach((chip) => {
 document.getElementById('search').addEventListener('input', (e) => { filter.q = e.target.value.trim(); render(); });
 document.getElementById('sort').addEventListener('change', (e) => { filter.sort = e.target.value; render(); });
 
-/* ---------- 4. 참여 모달 : 참여하면 오픈채팅 링크 공개 ---------- */
+/* ---------- 4. 참여 모달 : 참여하면 수다방 입장 ---------- */
 const joinDialog = document.getElementById('joinDialog');
 const noShow = document.getElementById('noShowCheck');
 const joinBtn = document.getElementById('joinBtn');
@@ -254,7 +254,9 @@ function fillJoin() {
     ${p.memo ? `<div><dt>메모</dt><dd>${esc(p.memo)}</dd></div>` : ''}`;
   document.getElementById('joinConfirm').hidden = p.mine;
   document.getElementById('joinDone').hidden = !p.mine;
-  document.getElementById('kakaoLink').href = p.mine && p.kakao ? p.kakao : '#';
+  const $kakao = document.getElementById('kakaoLink');
+  $kakao.hidden = !(p.mine && p.kakao);
+  $kakao.href = p.mine && p.kakao ? p.kakao : '#';
   leaveBtn.textContent = p.isLeader ? '모집글 삭제' : '참여 취소';
 }
 
@@ -266,6 +268,10 @@ function openJoin() {
 }
 
 noShow.addEventListener('change', () => { joinBtn.disabled = !noShow.checked; });
+document.getElementById('openRoomBtn').addEventListener('click', () => {
+  joinDialog.close();
+  Chat.open(current.id);
+});
 
 joinBtn.addEventListener('click', async () => {
   if (isClosed(current)) return toast('이미 마감된 공구예요');
@@ -274,7 +280,8 @@ joinBtn.addEventListener('click', async () => {
     current = upsert(await api(`/api/posts/${current.id}/join`, { method: 'POST' }));
     fillJoin();
     render();
-    toast('참여 완료! 오픈채팅 링크가 열렸어요 🎉');
+    toast('참여 완료! 수다방이 열렸어요 🎉');
+    Chat.refresh();
   } catch (err) {
     toast(err.message);
     joinBtn.disabled = !noShow.checked;
@@ -294,6 +301,7 @@ leaveBtn.addEventListener('click', async () => {
       upsert(await api(`/api/posts/${p.id}/join`, { method: 'DELETE' }));
       toast('참여를 취소했어요');
     }
+    Chat.forget(p.id);
     joinDialog.close();
     render();
   } catch (err) {
@@ -336,10 +344,10 @@ form.addEventListener('submit', async (e) => {
     formError.textContent = msg;
   };
 
-  for (const name of ['title', 'leader', 'item', 'price', 'max', 'place', 'area', 'meet', 'deadline', 'kakao']) {
+  for (const name of ['title', 'leader', 'item', 'price', 'max', 'place', 'area', 'meet', 'deadline']) {
     if (!String(fd[name] || '').trim()) return fail(name, '빈 칸을 채워주세요');
   }
-  if (!/^https:\/\/open\.kakao\.com\//.test(fd.kakao.trim())) return fail('kakao', '오픈카카오톡 링크(https://open.kakao.com/...)를 넣어주세요');
+  if (fd.kakao.trim() && !/^https:\/\/open\.kakao\.com\//.test(fd.kakao.trim())) return fail('kakao', '오픈카카오톡 링크는 https://open.kakao.com/... 형식이어야 해요 (비워둬도 돼요)');
   const price = Math.round(+fd.price);
   const max = Math.round(+fd.max);
   if (!(price >= 0 && price <= 10000000)) return fail('price', '총 가격은 0원 ~ 1,000만 원 사이로 적어주세요');
@@ -375,7 +383,8 @@ form.addEventListener('submit', async (e) => {
   document.querySelector('.chip[data-cat="all"]').classList.add('is-active');
   render();
   document.getElementById('board').scrollIntoView();
-  toast('모집글이 올라갔어요 🧺');
+  toast('모집글이 올라갔어요 🧺 수다방도 열렸어요');
+  Chat.refresh();
 });
 
 /* ---------- toast ---------- */
@@ -388,105 +397,211 @@ function toast(msg) {
   toastTimer = setTimeout(() => t.classList.remove('is-show'), 2200);
 }
 
-load();
 
-/* ---------- 6. 장바구니 수다방 (전체 채팅) ---------- */
-(() => {
+/* ---------- 6. 공구 수다방 : 모집글마다 참여자끼리만 쓰는 채팅 ---------- */
+const Chat = (() => {
+  const $chat = document.getElementById('chat');
   const $fab = document.getElementById('chatFab');
   const $bag = document.getElementById('chatBag');
+  const $back = document.getElementById('chatBack');
+  const $title = document.getElementById('chatTitle');
+  const $sub = document.getElementById('chatSub');
+  const $members = document.getElementById('chatMembers');
+  const $rooms = document.getElementById('chatRooms');
   const $list = document.getElementById('chatList');
-  const $me = document.getElementById('chatMe');
   const $form = document.getElementById('chatForm');
   const $input = document.getElementById('chatInput');
   const $badge = document.getElementById('chatBadge');
   const $send = $form.querySelector('.chat__send');
 
-  let lastId = 0;
-  let unread = 0;
-  let started = false;
+  let rooms = [];
+  let room = null;        // 지금 열려 있는 방 id
+  let lastId = 0;         // 열린 방에서 받은 마지막 메시지 id
+  let lastAuthor = null;  // 같은 사람이 연달아 말하면 프로필 생략
   let busy = false;
-  let lastAuthor = null; // 같은 사람이 연달아 말하면 프로필 생략
   const isOpen = () => !$bag.hidden;
   const fmtTime = (t) => new Intl.DateTimeFormat('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false }).format(t);
 
-  function setBadge() {
-    $badge.hidden = unread === 0;
-    $badge.textContent = unread > 99 ? '99+' : unread;
+  // 방마다 어디까지 읽었는지 (이 브라우저에만 저장)
+  let read = {};
+  try { read = JSON.parse(localStorage.getItem('bwu_read') || '{}') || {}; } catch {}
+  const markRead = (id, msgId) => {
+    if ((read[id] || 0) >= msgId) return;
+    read[id] = msgId;
+    try { localStorage.setItem('bwu_read', JSON.stringify(read)); } catch {}
+  };
+  const isUnread = (r) => r.last && !r.last.mine && r.last.id > (read[r.id] || 0) && r.id !== room;
+
+  function paintBadge() {
+    const n = rooms.filter(isUnread).length;
+    $badge.hidden = n === 0;
+    $badge.textContent = n;
+    $chat.hidden = rooms.length === 0 && !isOpen();
+  }
+
+  /* ----- 방 목록 ----- */
+  function paintRooms() {
+    if (!rooms.length) {
+      $rooms.innerHTML = '<li class="chat__empty">아직 참여한 공구가 없어요.<br>공구에 참여하면 여기서 같이 사는 사람들과 이야기해요 🧺</li>';
+      return;
+    }
+    $rooms.innerHTML = rooms.map((r) => {
+      const last = r.last
+        ? (r.last.kind === 'sys' ? r.last.text : `${r.last.mine ? '나' : r.last.name}: ${r.last.text}`)
+        : '아직 대화가 없어요';
+      return `
+        <li><button class="room" type="button" data-room="${r.id}">
+          <span class="room__ico" aria-hidden="true">${CATS[r.cat]?.emoji || '🧺'}</span>
+          <span class="room__main">
+            <span class="room__title">${r.isLeader ? '👑 ' : ''}${esc(r.title)}</span>
+            <span class="room__last">${esc(last)}</span>
+          </span>
+          <span class="room__meta">
+            <span>${r.joined}/${r.max}명</span>
+            ${isUnread(r) ? '<span class="room__dot" aria-label="새 메시지"></span>' : ''}
+          </span>
+        </button></li>`;
+    }).join('');
+  }
+
+  async function refresh() {
+    try {
+      rooms = (await api('/api/rooms')).rooms;
+    } catch (err) {
+      return console.warn('수다방 목록을 불러오지 못했어요', err);
+    }
+    // 처음 보는 방의 입장·개설 안내는 '새 메시지'로 치지 않음 (내가 방금 만들거나 들어간 방)
+    rooms.forEach((r) => { if (!(r.id in read) && r.last?.kind === 'sys') markRead(r.id, r.last.id); });
+    if (room && !rooms.some((r) => r.id === room)) {   // 방이 사라짐 (삭제·나감)
+      showList();
+      toast('수다방이 닫혔어요');
+    }
+    if (!room) paintRooms();
+    paintBadge();
+  }
+
+  function showList() {
+    room = null;
+    $title.textContent = '내 공구 수다방';
+    $sub.textContent = '참여한 공구 사람들끼리만 보여요';
+    $back.hidden = true;
+    $members.hidden = true;
+    $list.hidden = true;
+    $form.hidden = true;
+    $rooms.hidden = false;
+    paintRooms();
+    paintBadge();
+  }
+
+  /* ----- 방 안 ----- */
+  function paintMembers(members) {
+    const me = members.find((m) => m.me);
+    if (me) $sub.innerHTML = `나는 ${esc(me.emoji)} <b>${esc(me.name)}</b> · ${members.length}명`;
+    $members.innerHTML = members.map((m) => `
+      <li class="${m.me ? 'is-me' : ''}" title="${esc(m.name)}">
+        <span class="ava" aria-hidden="true">${esc(m.emoji)}</span>${esc(m.name)}${m.leader ? '<span class="msg__crown" aria-label="리더">👑</span>' : ''}
+      </li>`).join('');
   }
 
   function append(msgs) {
-    if (!msgs.length) return;
-    $list.querySelector('.chat__empty')?.remove();
+    const fresh = msgs.filter((m) => m.id > lastId);
+    if (!fresh.length) return;
     const nearBottom = $list.scrollHeight - $list.scrollTop - $list.clientHeight < 80;
-    const html = msgs.filter((m) => m.id > lastId).map((m) => {
+    $list.insertAdjacentHTML('beforeend', fresh.map((m) => {
+      lastId = Math.max(lastId, m.id);
+      if (m.kind === 'sys') {
+        lastAuthor = null;
+        return `<li class="msg-sys">${esc(m.text)}</li>`;
+      }
       const author = `${m.name}|${m.mine}`;
       const cont = author === lastAuthor;
       lastAuthor = author;
-      lastId = Math.max(lastId, m.id);
       return `
         <li class="msg ${m.mine ? 'is-mine' : ''} ${cont ? 'is-cont' : ''}">
           <span class="msg__ava" aria-hidden="true">${esc(m.emoji)}</span>
           <div class="msg__body">
-            <span class="msg__name">${esc(m.name)}</span>
+            <span class="msg__name">${esc(m.name)}${m.leader ? '<span class="msg__crown" aria-label="리더">👑</span>' : ''}</span>
             <p class="msg__bubble">${esc(m.text)}</p>
             <time class="msg__time">${fmtTime(m.ts)}</time>
           </div>
         </li>`;
-    }).join('');
-    $list.insertAdjacentHTML('beforeend', html);
-    if (nearBottom || msgs.some((m) => m.mine)) $list.scrollTop = $list.scrollHeight;
+    }).join(''));
+    if (nearBottom || fresh.some((m) => m.mine)) $list.scrollTop = $list.scrollHeight;
+    markRead(room, lastId);
   }
 
-  async function poll() {
-    if (busy) return;
+  async function pollRoom() {
+    if (!room || busy) return;
     busy = true;
+    const id = room;
     try {
-      const data = await api(`/api/chat?after=${lastId}`);
-      if (data.me) $me.innerHTML = `나는 ${esc(data.me.emoji)} <b>${esc(data.me.name)}</b>`;
-      const fresh = data.messages.filter((m) => m.id > lastId);
-      if (!started) {
-        started = true;
-        if (!fresh.length) $list.innerHTML = '<li class="chat__empty">아직 조용한 바구니예요.<br>먼저 인사해볼까요? 👋</li>';
-      } else if (!isOpen()) {
-        unread += fresh.filter((m) => !m.mine).length;
-        setBadge();
-      }
-      append(fresh);
+      const data = await api(`/api/posts/${id}/chat?after=${lastId}`);
+      if (id !== room) return;
+      paintMembers(data.members);
+      append(data.messages);
     } catch (err) {
-      console.warn('채팅을 불러오지 못했어요', err);
+      if (id === room) { toast(err.message); showList(); refresh(); }
     } finally {
       busy = false;
     }
   }
 
-  function toggle(open) {
-    $bag.hidden = !open;
-    $fab.setAttribute('aria-expanded', String(open));
-    if (open) {
-      unread = 0;
-      setBadge();
-      $list.scrollTop = $list.scrollHeight;
-      poll();
-      if (matchMedia('(hover: hover)').matches) $input.focus();
-    } else {
-      $fab.focus();
-    }
+  async function enter(id) {
+    let r = rooms.find((x) => x.id === id);
+    if (!r) { await refresh(); r = rooms.find((x) => x.id === id); }
+    if (!r) return toast('참여한 공구의 수다방만 열 수 있어요');
+    room = id;
+    lastId = 0;
+    lastAuthor = null;
+    $title.textContent = r.title;
+    $sub.textContent = '불러오는 중…';
+    $back.hidden = false;
+    $rooms.hidden = true;
+    $members.hidden = false;
+    $members.innerHTML = '';
+    $list.hidden = false;
+    $list.innerHTML = '';
+    $form.hidden = false;
+    await pollRoom();
+    $list.scrollTop = $list.scrollHeight;
+    paintBadge();
+    if (matchMedia('(hover: hover)').matches) $input.focus();
   }
 
-  $fab.addEventListener('click', () => toggle(!isOpen()));
-  document.getElementById('chatClose').addEventListener('click', () => toggle(false));
-  $bag.addEventListener('keydown', (e) => { if (e.key === 'Escape') toggle(false); });
+  function setOpen(open) {
+    $bag.hidden = !open;
+    $fab.setAttribute('aria-expanded', String(open));
+    if (!open) { room = null; paintBadge(); $fab.focus(); }
+  }
+
+  async function open(id) {
+    $chat.hidden = false;
+    setOpen(true);
+    if (id) await enter(id);
+    else if (rooms.length === 1) await enter(rooms[0].id);   // 방이 하나면 바로 입장
+    else { showList(); refresh(); }
+  }
+
+  $fab.addEventListener('click', () => (isOpen() ? setOpen(false) : open()));
+  document.getElementById('chatClose').addEventListener('click', () => setOpen(false));
+  $back.addEventListener('click', () => { showList(); refresh(); });
+  $bag.addEventListener('keydown', (e) => { if (e.key === 'Escape') setOpen(false); });
+  $rooms.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-room]');
+    if (b) enter(+b.dataset.room);
+  });
 
   $form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const text = $input.value.trim();
-    if (!text) return;
+    if (!text || !room) return;
     $send.disabled = true;
     try {
-      const m = await api('/api/chat', { method: 'POST', body: JSON.stringify({ text }) });
+      const id = room;
+      const m = await api(`/api/posts/${id}/chat`, { method: 'POST', body: JSON.stringify({ text }) });
       $input.value = '';
-      await poll();       // 그사이 다른 사람 메시지 먼저 붙이고
-      append([m]);        // 내 메시지 (이미 붙었으면 무시됨)
+      await pollRoom();   // 그사이 다른 사람 메시지 먼저 붙이고
+      if (id === room) append([m]);
     } catch (err) {
       toast(err.message);
     } finally {
@@ -495,12 +610,26 @@ load();
     }
   });
 
-  // 열려 있으면 3초, 닫혀 있으면 15초마다 새 메시지 확인 (탭이 보일 때만)
+  // 방이 열려 있으면 3초마다, 아니면 15초마다 방 목록(새 메시지 표시) 확인
   let tick = 0;
   setInterval(() => {
     tick += 1;
     if (document.hidden) return;
-    if (isOpen() || tick % 5 === 0) poll();
+    if (room && isOpen()) pollRoom();
+    else if (tick % 5 === 0) refresh();
   }, 3000);
-  poll();
+  refresh();
+
+  return {
+    open,
+    refresh,
+    forget(id) {
+      delete read[id];
+      try { localStorage.setItem('bwu_read', JSON.stringify(read)); } catch {}
+      if (room === id) showList();
+      refresh();
+    },
+  };
 })();
+
+load();

@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
-  <link rel="stylesheet" href="style.css?v=3" />
+  <link rel="stylesheet" href="style.css?v=4" />
 </head>
 <body class="is-locked">
 
@@ -178,19 +178,19 @@
             <span class="step__no">01</span>
             <div class="step__icon" aria-hidden="true">📝</div>
             <h3>모집글 올리기</h3>
-            <p>장소, 살 물건, 만날 시간, 모집 마감 시간, 인원, 오픈채팅 링크를 적어 올려요.</p>
+            <p>장소, 살 물건, 만날 시간, 모집 마감 시간, 인원을 적어 올려요.</p>
           </li>
           <li class="step reveal">
             <span class="step__no">02</span>
             <div class="step__icon" aria-hidden="true">🙋</div>
             <h3>참여 버튼 누르기</h3>
-            <p>근처 공구가 마음에 들면 참여! 참여하면 오픈채팅 링크가 공개돼요.</p>
+            <p>근처 공구가 마음에 들면 참여! 참여한 사람끼리만 쓰는 수다방이 열려요.</p>
           </li>
           <li class="step reveal">
             <span class="step__no">03</span>
             <div class="step__icon" aria-hidden="true">🧺</div>
             <h3>만나서 1/N</h3>
-            <p>마감되면 작성자가 리더가 되어 오픈채팅에서 시간·정산을 정리하고 함께 나눠요.</p>
+            <p>작성자가 리더가 되어 수다방에서 시간·정산을 정리하고 함께 나눠요.</p>
           </li>
         </ol>
       </section>
@@ -266,17 +266,18 @@
       <div class="join-step" id="joinConfirm">
         <label class="check">
           <input type="checkbox" id="noShowCheck" />
-          <span>약속 시간을 꼭 지킬게요. 못 오게 되면 미리 오픈채팅에 알릴게요. (노쇼 방지)</span>
+          <span>약속 시간을 꼭 지킬게요. 못 오게 되면 미리 수다방에 알릴게요. (노쇼 방지)</span>
         </label>
-        <button class="btn btn--primary btn--block" id="joinBtn" type="button" disabled>참여하고 오픈채팅 링크 받기</button>
+        <button class="btn btn--primary btn--block" id="joinBtn" type="button" disabled>참여하고 수다방 들어가기</button>
       </div>
 
       <div class="join-step join-done" id="joinDone" hidden>
         <div class="join-done__burst" aria-hidden="true">🎉</div>
-        <p><b>참여 완료!</b> 아래 오픈채팅에서 리더와 만날 시간·정산을 이야기해요.</p>
-        <a class="kakao" id="kakaoLink" href="#" target="_blank" rel="noopener">
+        <p><b>참여 완료!</b> 수다방에서 리더와 만날 시간·정산을 이야기해요.</p>
+        <button class="btn btn--primary btn--block" id="openRoomBtn" type="button">🧺 수다방 열기</button>
+        <a class="kakao" id="kakaoLink" href="#" target="_blank" rel="noopener" hidden>
           <span class="kakao__icon" aria-hidden="true">💬</span>
-          <span>오픈채팅방 입장하기</span>
+          <span>오픈채팅방도 있어요</span>
         </a>
         <button class="btn btn--ghost btn--block btn--sm" id="leaveBtn" type="button">참여 취소</button>
       </div>
@@ -338,8 +339,8 @@
           <input name="deadline" type="datetime-local" required />
         </label>
         <label class="field field--full">
-          <span>오픈카카오톡 링크 <small>참여한 사람에게만 공개돼요</small></span>
-          <input name="kakao" type="url" required placeholder="https://open.kakao.com/o/..." />
+          <span>오픈카카오톡 링크 (선택) <small>연락은 수다방으로 충분해요. 참여한 사람에게만 공개</small></span>
+          <input name="kakao" type="url" placeholder="https://open.kakao.com/o/..." />
         </label>
         <label class="field field--full">
           <span>메모 (선택)</span>
@@ -351,19 +352,22 @@
     </form>
   </dialog>
 
-  <!-- ============ 장바구니 수다방 (종이봉투 채팅) ============ -->
-  <aside class="chat" id="chat">
-    <section class="chat__bag" id="chatBag" aria-label="장바구니 수다방" hidden>
+  <!-- ============ 공구 수다방 (종이봉투 채팅, 참여자끼리만) ============ -->
+  <aside class="chat" id="chat" hidden>
+    <section class="chat__bag" id="chatBag" aria-label="공구 수다방" hidden>
       <header class="chat__head">
-        <div>
-          <b class="chat__title">장바구니 수다방</b>
-          <p class="chat__me" id="chatMe">바구니에 들어가는 중…</p>
+        <button class="chat__back" id="chatBack" type="button" aria-label="수다방 목록으로" hidden>←</button>
+        <div class="chat__head-text">
+          <b class="chat__title" id="chatTitle">내 공구 수다방</b>
+          <p class="chat__sub" id="chatSub">참여한 공구 사람들끼리만 보여요</p>
         </div>
         <button class="chat__x" id="chatClose" type="button" aria-label="채팅 닫기">×</button>
       </header>
-      <ol class="chat__list" id="chatList" aria-live="polite"></ol>
-      <form class="chat__form" id="chatForm" autocomplete="off">
-        <input id="chatInput" maxlength="200" placeholder="바구니 친구들에게 한마디" aria-label="메시지" />
+      <ul class="chat__members" id="chatMembers" hidden></ul>
+      <ul class="chat__rooms" id="chatRooms"></ul>
+      <ol class="chat__list" id="chatList" aria-live="polite" hidden></ol>
+      <form class="chat__form" id="chatForm" autocomplete="off" hidden>
+        <input id="chatInput" maxlength="300" placeholder="같이 사는 사람들에게 한마디" aria-label="메시지" />
         <button class="chat__send" type="submit" aria-label="보내기">➤</button>
       </form>
     </section>
@@ -376,6 +380,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="script.js?v=3"></script>
+  <script src="script.js?v=4"></script>
 </body>
 </html>
